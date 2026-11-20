@@ -98,13 +98,13 @@
       box-sizing: border-box;
     }
     input[type="date"] {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  display: block;
-  font-size: 13px !important;
-  padding-left: 6px !important;
-  padding-right: 6px !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      display: block;
+      font-size: 13px !important;
+      padding-left: 6px !important;
+      padding-right: 6px !important;
     }
     input:focus, select:focus, textarea:focus {
       outline: none;
@@ -181,10 +181,10 @@
           <span id="masterQuoteStatus" class="text-[11px] text-slate-400">カレンダーで日付を選ぶと対象レースが表示されます</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0">
-         <div class="min-w-0 overflow-hidden">
-  <label class="block text-[11px] text-slate-400 mb-1">開催日（カレンダー選択）</label>
-  <input type="date" id="masterDateInput" onchange="onMasterDateChange()" class="w-full min-w-0 max-w-full rounded px-2 py-1.5 font-mono">
-</div>
+          <div class="min-w-0 overflow-hidden">
+            <label class="block text-[11px] text-slate-400 mb-1">開催日（カレンダー選択）</label>
+            <input type="date" id="masterDateInput" onchange="onMasterDateChange()" class="w-full min-w-0 max-w-full rounded px-2 py-1.5 font-mono">
+          </div>
           <div class="sm:col-span-2 min-w-0">
             <label class="block text-[11px] text-slate-400 mb-1">対象レース（選ぶと出走表・条件・コラムを反映）</label>
             <select id="masterRaceSelect" onchange="applySelectedMasterRace()" class="w-full min-w-0 max-w-full rounded px-2.5 py-1.5 text-sm font-bold">
@@ -224,7 +224,7 @@
         <span>↔ 表は左右にスクロールできます</span>
       </div>
 
-      <!-- テーブル（スマホでも馬名・脚質・評価・鞍上が潰れない幅を確保） -->
+      <!-- テーブル -->
       <div class="overflow-x-auto horse-scroll-wrap rounded-lg border border-[#1a2e26]">
         <table class="w-full min-w-[820px] text-left border-collapse text-xs">
           <thead>
@@ -525,9 +525,15 @@
 
       const dedupMap = new Map();
       list.forEach(item => {
-        if (!item || (!item.raceName && (!item.horses || item.horses.length === 0))) return;
-        const key = `${normalizeDateStr(item.date)}__${normalizeRaceNameStr(item.raceName)}`;
-        dedupMap.set(key, item);
+        if (!item) return;
+        const cleanName = normalizeRaceNameStr(item.raceName);
+        const horseCount = Array.isArray(item.horses) ? item.horses.length : 0;
+
+        // 未入力・未編集の「新規レース」や出走馬0件のレースは公開一覧から除外
+        if (!cleanName || cleanName === '新規レース' || horseCount === 0) return;
+
+        const key = `${normalizeDateStr(item.date)}__${cleanName}`;
+        dedupMap.set(key, { ...item, raceName: cleanName });
       });
 
       return Array.from(dedupMap.values());
@@ -764,6 +770,34 @@
     function clearAllHorses() {
       isCustomSession = true;
       horses = [];
+      lastSortedResult = [];
+
+      const raceNameEl = document.getElementById('raceName');
+      if (raceNameEl) raceNameEl.value = '';
+
+      const dateInput = document.getElementById('masterDateInput');
+      if (dateInput) dateInput.value = '';
+
+      const raceSelect = document.getElementById('masterRaceSelect');
+      if (raceSelect) raceSelect.innerHTML = `<option value="">-- 日付を選択してください --</option>`;
+
+      const statusEl = document.getElementById('masterQuoteStatus');
+      if (statusEl) statusEl.textContent = 'カレンダーで日付を選ぶと対象レースが表示されます';
+
+      const colBox = document.getElementById('displayColumnBox');
+      if (colBox) {
+        colBox.textContent = 'コラム未登録';
+        colBox.style.color = '#64748b';
+      }
+
+      const rankingEl = document.getElementById('rankingList');
+      if (rankingEl) {
+        rankingEl.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">出走馬が入力されるとランキングが表示されます</p>`;
+      }
+
+      renderRegisteredDateChips(
+        Array.from(new Set(getAllMasterRaces().map(r => r.date).filter(Boolean))).sort()
+      );
       renderTable();
       calculateAll();
     }
