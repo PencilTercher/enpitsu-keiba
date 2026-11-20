@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>運営者情報・予想ロジック｜えんぴつ先生の競馬予想</title>
+  <meta name="description" content="えんぴつ先生の競馬予想の運営者情報と、展開予測・期待値（EV）算出ロジックについて詳しく解説します。">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #0b1310;
+      color: #e2e8f0;
+      font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    }
+    .turf-card {
+      background: linear-gradient(145deg, #121f1a 0%, #0d1713 100%);
+      border: 1px solid #1f362d;
+    }
+    .gold-text {
+      color: #d4af37;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ヘッダー -->
+  <header class="bg-[#080e0c] border-b border-[#1f362d] sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <a href="index.html" class="flex items-center gap-2">
+        <span class="text-2xl">✏️</span>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold tracking-wider text-white">えんぴつ先生の競馬予想</h1>
+          <p class="text-[11px] text-emerald-400">展開予測 × 期待値（EV）スコアリング</p>
+        </div>
+      </a>
+      <nav class="flex items-center gap-4 text-xs md:text-sm text-slate-300">
+        <a href="index.html" class="hover:text-emerald-400 transition">予想ツール</a>
+        <a href="about.html" class="text-emerald-400 font-bold">運営者・ロジック</a>
+        <a href="contact.html" class="hover:text-emerald-400 transition">お問い合わせ</a>
+        <a href="privacy.html" class="hover:text-emerald-400 transition">プライバシーポリシー</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-8 flex-grow w-full space-y-6">
+
+    <section class="turf-card rounded-xl p-6 md:p-8 space-y-6 shadow-xl">
+      <div class="border-b border-[#1f362d] pb-4">
+        <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+          <span class="text-emerald-400">✏️</span> えんぴつ先生とは？ ＆ 当サイトの理念
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">「単なる直感ではなく、データと展開の噛み合わせから本当の妙味（期待値）をあぶり出す」</p>
+      </div>
+
+      <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+        <p>
+          こんにちは、「えんぴつ先生の競馬予想」管理人です。当サイトは、競馬を感覚やオッズの単なる人気順ではなく、<strong>「展開（ペース）」×「馬場・距離適性」×「単勝オッズからの期待値（EV）」</strong>という独自のマルチファクター分析で攻略するために開発した実践型シミュレーターツールです。
+        </p>
+        <p>
+          現場のリアルな馬場傾向、パドックでの一言メモ、そして過去レースの履歴と収支をワンストップで管理しながら、回収率最大化を狙うすべての競馬ファンをサポートします。
+        </p>
+      </div>
+    </section>
+
+    <section class="turf-card rounded-xl p-6 md:p-8 space-y-6 shadow-xl">
+      <div class="border-b border-[#1f362d] pb-4">
+        <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+          <span class="gold-text">📊</span> 期待値（EV）算出ロジックの仕組み
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">当ツールが導き出すAIスコアと期待値のアルゴリズム</p>
+      </div>
+
+      <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+        <div class="p-4 rounded bg-[#080e0c] border border-[#1f362d] space-y-2">
+          <h3 class="font-bold text-emerald-400 text-base">1. 展開・脚質マッチング評価</h3>
+          <p class="text-xs text-slate-300">
+            出走馬の脚質（逃げ・先行・差し・追込）の頭数バランスから、スロー・ミドル・ハイペースを自動判定（または手動調整）。それぞれの展開で有利になる脚質にボーナス加点を行い、ベースのAIスコアを算出します。
+          </p>
+        </div>
+
+        <div class="p-4 rounded bg-[#080e0c] border border-[#1f362d] space-y-2">
+          <h3 class="font-bold text-emerald-400 text-base">2. 馬場状態・距離適性補正</h3>
+          <p class="text-xs text-slate-300">
+            「良・稍重・重・不良」の馬場コンディションによる脚質ごとの有利不利や、芝・ダートの距離カテゴリに応じた特注補正をリアルタイムに反映。馬ごとの期待評価（S〜C）も総合力に直結します。
+          </p>
+        </div>
+
+        <div class="p-4 rounded bg-[#080e0c] border border-[#1f362d] space-y-2">
+          <h3 class="font-bold text-emerald-400 text-base">3. 期待値（EV） ＆ スタンス連動型買い目</h3>
+          <p class="text-xs text-slate-300">
+            各馬のAIスコアから算出した「モデル勝率」と、単勝オッズから逆算される「市場のインプライド確率」を比較。期待値（EV）が100%を超える「妙味のある馬」を浮き彫りにします。さらに、選択した狙い方スタンス（堅実・バランス・穴狙い）に応じて、予算に合わせた最適な資金配分と買い目を自動構築します。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <div class="text-center pt-2">
+      <a href="index.html" class="inline-block bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-6 py-3 rounded-lg shadow transition cursor-pointer">
+        🚀 予想ツールに戻る
+      </a>
+    </div>
+
+  </main>
+
+  <footer class="bg-[#080e0c] border-t border-[#1f362d] mt-10 py-8 text-xs text-slate-400 text-center space-y-2">
+    <div class="flex justify-center gap-4 text-slate-400">
+      <a href="index.html" class="hover:text-emerald-400 transition">予想ツール</a>
+      <a href="about.html" class="hover:text-emerald-400 transition font-bold text-emerald-400">運営者・ロジック</a>
+      <a href="contact.html" class="hover:text-emerald-400 transition">お問い合わせ</a>
+      <a href="privacy.html" class="hover:text-emerald-400 transition">プライバシーポリシー</a>
+    </div>
+    <p>&copy; 2026 えんぴつ先生の競馬予想 All Rights Reserved.</p>
+  </footer>
+
+</body>
+</html>

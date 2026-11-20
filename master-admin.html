@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master Admin｜えんぴつ先生の競馬予想</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="ai-master.js"></script>
+  <style>
+    body { background-color: #0b1310; color: #e2e8f0; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; }
+    .turf-card { background: linear-gradient(145deg, #121f1a 0%, #0d1713 100%); border: 1px solid #1f362d; }
+    input[type="text"], input[type="password"], input[type="number"], select, textarea {
+      background-color: #080e0c; border: 1px solid #264237; color: #f8fafc;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #10b981; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <header class="bg-[#080e0c] border-b border-[#1f362d] sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xl">🔐</span>
+        <h1 class="text-base font-bold text-white">Master 専用データ管理</h1>
+        <span id="autoSaveBadge" class="hidden text-[11px] bg-emerald-950 border border-emerald-700 text-emerald-300 px-2.5 py-0.5 rounded-full font-mono">自動保存待機中</span>
+      </div>
+      <a href="index.html" class="text-xs text-slate-300 hover:text-emerald-400">← 予想ツールに戻る</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full space-y-6">
+
+    <!-- 認証画面 -->
+    <section id="loginSection" class="turf-card rounded-xl p-8 max-w-md mx-auto space-y-4 shadow-2xl">
+      <h2 class="text-base font-bold text-white text-center">Master 認証</h2>
+      <input type="password" id="masterPasswordInput" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter') checkMasterLogin()" class="w-full rounded px-3 py-2 text-sm text-center">
+      <button type="button" onclick="checkMasterLogin()" class="w-full bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-2.5 rounded cursor-pointer">ログイン</button>
+    </section>
+
+    <!-- 管理ダッシュボード -->
+    <section id="adminDashboard" class="hidden turf-card rounded-xl p-6 md:p-8 space-y-6 shadow-xl">
+      <div class="flex flex-wrap justify-between items-center border-b border-[#1f362d] pb-4 gap-3">
+        <div>
+          <h2 class="text-base font-bold text-white">✏️ 独立マスター＆コラム・レース管理（自動保存対応）</h2>
+          <p class="text-xs text-slate-400">入力内容はブラウザに自動保存されます。JSONバックアップでの保存・復元や、ai-master.js用コードのコピーも可能です。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="openMasterJsCodeModal()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-2 rounded cursor-pointer">📋 ai-master.js コード表示</button>
+          <button type="button" onclick="exportMasterData()" class="bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold px-3 py-2 rounded cursor-pointer">📥 JSONバックアップ</button>
+          <label class="bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded cursor-pointer">
+            📤 JSON復元
+            <input type="file" id="importFile" accept=".json" onchange="importMasterData(event)" class="hidden">
+          </label>
+          <button type="button" onclick="saveAllMasterData(true)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded cursor-pointer">💾 今すぐ保存</button>
+        </div>
+      </div>
+
+      <!-- コラム執筆セクション -->
+      <div class="turf-card rounded-xl p-4 border border-[#264237] space-y-3 bg-[#080e0c]/50">
+        <div class="flex flex-wrap justify-between items-center">
+          <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-2"><span>📝</span> メインページ掲載用コラム・回顧録の執筆（全体デフォルト）</h3>
+          <span id="adminCharCount" class="text-xs font-mono text-slate-300">0 文字</span>
+        </div>
+        <textarea id="masterColumnInput" rows="4" placeholder="ここに今週のレース回顧や血統・馬場傾向のコラムを入力してください..." oninput="updateAdminCharCount(); scheduleAutoSave();" class="w-full text-xs p-3 rounded text-slate-200 leading-relaxed"></textarea>
+      </div>
+
+      <!-- タブ切り替え -->
+      <div class="flex flex-wrap gap-2 border-b border-[#1f362d] pb-3">
+        <button type="button" id="tabRaceBtn" onclick="switchTab('race')" class="px-4 py-2 rounded text-xs font-bold bg-emerald-700 text-white cursor-pointer">🗓️ 日付別レース管理</button>
+        <button type="button" id="tabHorseBtn" onclick="switchTab('horse')" class="px-4 py-2 rounded text-xs font-bold bg-[#1f362d] text-slate-300 cursor-pointer">🐎 競走馬マスター</button>
+        <button type="button" id="tabJockeyBtn" onclick="switchTab('jockey')" class="px-4 py-2 rounded text-xs font-bold bg-[#1f362d] text-slate-300 cursor-pointer">🏇 鞍上マスター</button>
+      </div>
+
+      <!-- ⓪ 日付別レース管理 -->
+      <div id="raceTabContent" class="space-y-4">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+          <div>
+            <h3 class="text-xs font-bold text-emerald-400">日付別レース登録（入力と同時に自動保存）</h3>
+            <p class="text-[11px] text-slate-400">出走馬欄に「1. ジーティーダーリン / 逃 / 鞍上/52.3 (14人気)」や「4 / 馬名 / 先行 / 騎手 / 12.5」などを入力すると自動でパース＆保存されます。</p>
+          </div>
+          <button type="button" onclick="addMasterRace()" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded cursor-pointer">＋ 新規レース追加</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- 左：登録済みレース一覧 -->
+          <div class="bg-[#080e0c] border border-[#264237] rounded-lg p-3 space-y-2">
+            <div class="text-xs font-bold text-slate-300 border-b border-[#1f362d] pb-2">登録済みレース一覧</div>
+            <div id="masterRaceList" class="space-y-2 max-h-[450px] overflow-y-auto text-xs"></div>
+          </div>
+
+          <!-- 右：選択中レースの編集フォーム -->
+          <div id="raceEditorPanel" class="lg:col-span-2 bg-[#080e0c] border border-[#264237] rounded-lg p-4 space-y-3 text-xs">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">開催日（YYYY/MM/DD）</label>
+                <input type="text" id="editRaceDate" placeholder="2026/11/15" oninput="syncRaceEditorToModel()" class="w-full rounded px-2.5 py-1.5 font-mono">
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] text-slate-400 mb-1">レース名</label>
+                <input type="text" id="editRaceName" placeholder="例：エリザベス女王杯（G1）" oninput="syncRaceEditorToModel()" class="w-full rounded px-2.5 py-1.5 font-bold">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">開催場所</label>
+                <select id="editRacePlace" onchange="syncRaceEditorToModel()" class="w-full rounded px-2.5 py-1.5">
+                  <option value="京都">京都</option><option value="東京">東京</option><option value="中山">中山</option>
+                  <option value="阪神">阪神</option><option value="中京">中京</option><option value="新潟">新潟</option>
+                  <option value="札幌">札幌</option><option value="函館">函館</option><option value="小倉">小倉</option><option value="福島">福島</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">距離</label>
+                <select id="editRaceDistance" onchange="syncRaceEditorToModel()" class="w-full rounded px-2.5 py-1.5">
+                  <option value="芝1200m">芝1200m</option><option value="芝1600m">芝1600m</option><option value="芝1800m">芝1800m</option>
+                  <option value="芝2000m">芝2000m</option><option value="芝2200m">芝2200m</option><option value="芝2400m">芝2400m</option>
+                  <option value="芝2500m">芝2500m</option>
+                  <option value="ダ1200m">ダ1200m</option><option value="ダ1400m">ダ1400m</option><option value="ダ1800m">ダ1800m</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">馬場</label>
+                <select id="editRaceCondition" onchange="syncRaceEditorToModel()" class="w-full rounded px-2.5 py-1.5">
+                  <option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-1">
+                <label class="text-[11px] text-slate-400">出走馬（例：<code class="text-amber-300">1. ジーティーダーリン / 逃 / 鞍上/52.3 (14人気)</code>）</label>
+                <span id="parsedHorseCountBadge" class="text-[11px] text-emerald-400 font-mono">認識: 0頭</span>
+              </div>
+              <textarea id="editRaceHorsesText" rows="6" oninput="syncRaceHorsesFromText()" placeholder="1. ジーティーダーリン / 逃 / 鞍上/52.3 (14人気)&#10;7 / カムニャック / 差し / 川田 / 4.2" class="w-full rounded p-2.5 font-mono leading-relaxed"></textarea>
+              <div id="parsePreviewLine" class="text-[11px] text-slate-400 mt-1 font-mono"></div>
+            </div>
+
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">このレース専用の展望・回顧コラム</label>
+              <textarea id="editRaceColumn" rows="4" placeholder="このレースを選んだときに index.html に表示されるコラム..." oninput="syncRaceEditorToModel()" class="w-full rounded p-2.5 leading-relaxed"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ① 馬マスター -->
+      <div id="horseTabContent" class="hidden space-y-3">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+          <div>
+            <h3 class="text-xs font-bold text-emerald-400">競走馬実績マスター</h3>
+            <p class="text-[11px] text-slate-400">場所補正・馬場補正は「京都:+5, 中山:-3」や「重:+6」のように記載できます。</p>
+          </div>
+          <button type="button" onclick="addHorseMasterRow()" class="bg-emerald-800 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded cursor-pointer">＋ 追加</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-slate-400 border-b border-[#264237]">
+                <th class="py-2 px-2 min-w-[130px]">馬名</th>
+                <th class="py-2 px-2 w-24">能力補正</th>
+                <th class="py-2 px-2 min-w-[150px]">場所補正 (+/-)</th>
+                <th class="py-2 px-2 min-w-[150px]">馬場補正 (+/-)</th>
+                <th class="py-2 px-2 min-w-[150px]">メモ</th>
+                <th class="py-2 px-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody id="horseMasterTableBody" class="divide-y divide-[#1a2e26]"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ② 鞍上マスター -->
+      <div id="jockeyTabContent" class="hidden space-y-3">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+          <div>
+            <h3 class="text-xs font-bold text-amber-400">鞍上得意条件マスター</h3>
+            <p class="text-[11px] text-slate-400">場所増減・馬場増減はそれぞれプラス／マイナス数値を入力してください。</p>
+          </div>
+          <button type="button" onclick="addJockeyMasterRow()" class="bg-amber-800 hover:bg-amber-700 text-white text-xs px-3 py-1 rounded cursor-pointer">＋ 追加</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-slate-400 border-b border-[#264237]">
+                <th class="py-2 px-2 min-w-[110px]">騎手名</th>
+                <th class="py-2 px-2 w-28">得意距離</th>
+                <th class="py-2 px-2 w-24">得意枠</th>
+                <th class="py-2 px-2 w-28">得意競馬場</th>
+                <th class="py-2 px-2 w-20">場所増減</th>
+                <th class="py-2 px-2 w-20">馬場増減</th>
+                <th class="py-2 px-2 w-20">ボーナス</th>
+                <th class="py-2 px-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody id="jockeyMasterTableBody" class="divide-y divide-[#1a2e26]"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ai-master.js コードコピーモーダル -->
+    <div id="masterJsModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div class="bg-[#121f1a] border border-[#264237] rounded-xl p-5 max-w-2xl w-full space-y-3 shadow-2xl">
+        <div class="flex justify-between items-center border-b border-[#1f362d] pb-2">
+          <h3 class="text-sm font-bold text-white">📋 ai-master.js 用コード（コピーして ai-master.js に貼り付け）</h3>
+          <button type="button" onclick="closeMasterJsCodeModal()" class="text-slate-400 hover:text-white text-base font-bold px-2 cursor-pointer">×</button>
+        </div>
+        <textarea id="masterJsCodeTextarea" rows="12" readonly class="w-full text-xs p-3 rounded font-mono text-emerald-200"></textarea>
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" onclick="copyMasterJsCode()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded cursor-pointer">📋 コードをコピー</button>
+          <button type="button" onclick="closeMasterJsCodeModal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded cursor-pointer">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let masterRacesData = [
+      {
+        date: "2026/11/15",
+        raceName: "エリザベス女王杯（G1）",
+        place: "京都",
+        distance: "芝2200m",
+        condition: "良",
+        column: "【2026/11/15 エリザベス女王杯 展望】\n京都芝2200mは内回りの持続力勝負。好位〜中団からロスなく立ち回れる差し・先行馬と単勝オッズの妙味に注目。",
+        horses: [
+          { num: 1, name: "ラヴァンダ", style: "差し", fit: "A", jockey: "岩田望", odds: 32.0, memo: "内枠利・妙味大" },
+          { num: 7, name: "カムニャック", style: "差し", fit: "S", jockey: "川田", odds: 4.2, memo: "地力上位・軸候補" }
+        ]
+      }
+    ];
+    let selectedRaceIdx = 0;
+    let isDirty = false;
+    let autoSaveTimer = null;
+
+    let horseMasterData = [
+      { name: "カムニャック", bonus: 6, placeMod: "京都:+4", condMod: "良:+2, 重:-3", note: "前走上がり最速" },
+      { name: "レガレイラ", bonus: 7, placeMod: "中山:+4, 東京:+2", condMod: "重:+3, 不良:+2", note: "持続力と決め手両立" },
+      { name: "ダノンデサイル", bonus: 7, placeMod: "東京:+3, 阪神:+2", condMod: "良:+2, 重:-2", note: "中長距離の安定感◎" },
+      { name: "シックスペンス", bonus: 6, placeMod: "東京:+4, 中山:+2", condMod: "良:+3, 重:-4", note: "キレ勝負に強い" },
+      { name: "ソールオリエンス", bonus: 5, placeMod: "中山:+3, 東京:+2", condMod: "重:+5, 不良:+4", note: "タフ馬場・道悪浮上" },
+      { name: "メイショウタバル", bonus: 4, placeMod: "京都:+4, 阪神:+3, 小倉:+3", condMod: "稍重:+3, 重:+5", note: "先行粘り込み・道悪巧者" }
+    ];
+    let jockeyMasterData = [
+      { name: "川田将雅", dist: "マイル〜中距離", gate: "内枠・中枠巧者", place: "京都・阪神", placeMod: 4, condMod: 2, bonus: 7 },
+      { name: "ルメール", dist: "全般得意", gate: "枠不問", place: "東京・中山", placeMod: 4, condMod: 3, bonus: 8 },
+      { name: "戸崎圭太", dist: "1600m〜1800m", gate: "先行好位", place: "東京・新潟", placeMod: 3, condMod: 1, bonus: 4 },
+      { name: "武豊", dist: "全般得意", gate: "自在", place: "京都・阪神", placeMod: 3, condMod: 2, bonus: 6 },
+      { name: "松山弘平", dist: "全般", gate: "好位追走", place: "阪神・京都", placeMod: 3, condMod: 2, bonus: 6 },
+      { name: "横山武史", dist: "中長距離", gate: "積極策", place: "中山・東京", placeMod: 3, condMod: 2, bonus: 5 },
+      { name: "横山和生", dist: "中距離", gate: "好位追走", place: "函館・札幌・中山", placeMod: 3, condMod: 2, bonus: 4 },
+      { name: "横山典弘", dist: "全般巧者", gate: "イン突き・職人", place: "東京・中山", placeMod: 3, condMod: 1, bonus: 6 },
+      { name: "C.デムーロ", dist: "中マイル", gate: "勝負強さ抜群", place: "阪神・京都", placeMod: 3, condMod: 2, bonus: 7 },
+      { name: "マーカンド", dist: "中距離", gate: "積極策", place: "中山・東京", placeMod: 2, condMod: 2, bonus: 5 },
+      { name: "岩田望来", dist: "中距離", gate: "先行粘り込み", place: "中京・阪神", placeMod: 2, condMod: 1, bonus: 5 },
+      { name: "西村淳也", dist: "マイル", gate: "気迫の騎乗", place: "阪神・京都", placeMod: 2, condMod: 2, bonus: 4 },
+      { name: "池添謙一", dist: "大駆け・G1男", gate: "イン強襲", place: "阪神・中山", placeMod: 2, condMod: 2, bonus: 5 },
+      { name: "津村明秀", dist: "マイル", gate: "堅実", place: "中山・東京", placeMod: 2, condMod: 1, bonus: 4 },
+      { name: "三浦皇成", dist: "マイル", gate: "先行", place: "中山・東京", placeMod: 2, condMod: 0, bonus: 4 },
+      { name: "北村友一", dist: "中距離", gate: "イン", place: "阪神・京都", placeMod: 2, condMod: 1, bonus: 4 },
+      { name: "浜中俊", dist: "マイル", gate: "イン突き", place: "京都・阪神", placeMod: 2, condMod: 1, bonus: 4 },
+      { name: "松若風馬", dist: "中距離", gate: "差し", place: "阪神・中京", placeMod: 2, condMod: 1, bonus: 3 },
+      { name: "吉田隼人", dist: "中長距離", gate: "先行", place: "函館・札幌", placeMod: 2, condMod: 2, bonus: 4 },
+      { name: "丹内祐次", dist: "ローカル巧者", gate: "積極策", place: "函館・札幌・福島", placeMod: 3, condMod: 2, bonus: 4 },
+      { name: "荻野極", dist: "中距離", gate: "粘り込み", place: "新潟・中京", placeMod: 2, condMod: 1, bonus: 3 },
+      { name: "今村聖奈", dist: "軽量", gate: "積極的", place: "小倉・中京", placeMod: 2, condMod: 0, bonus: 3 }
+    ];
+    const STORAGE_KEY = 'enpitsu_keiba_data_v16';
+
+    window.addEventListener('beforeunload', (e) => {
+      if (isDirty) {
+        saveAllMasterData(false);
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    function scheduleAutoSave() {
+      isDirty = true;
+      const badge = document.getElementById('autoSaveBadge');
+      if (badge) {
+        badge.classList.remove('hidden');
+        badge.textContent = '保存中...';
+      }
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        saveAllMasterData(false);
+      }, 300);
+    }
+
+    function checkMasterLogin() {
+      const pass = document.getElementById('masterPasswordInput').value;
+      if (pass === '2131' || pass === 'oneheart') {
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('adminDashboard').classList.remove('hidden');
+        const badge = document.getElementById('autoSaveBadge');
+        if (badge) badge.classList.remove('hidden');
+        loadAllMasterData();
+      } else {
+        alert('パスワードが違います。');
+      }
+    }
+
+    function switchTab(tab) {
+      const isR = tab === 'race';
+      const isH = tab === 'horse';
+      const isJ = tab === 'jockey';
+      document.getElementById('tabRaceBtn').className = `px-4 py-2 rounded text-xs font-bold cursor-pointer ${isR ? 'bg-emerald-700 text-white' : 'bg-[#1f362d] text-slate-300'}`;
+      document.getElementById('tabHorseBtn').className = `px-4 py-2 rounded text-xs font-bold cursor-pointer ${isH ? 'bg-emerald-700 text-white' : 'bg-[#1f362d] text-slate-300'}`;
+      document.getElementById('tabJockeyBtn').className = `px-4 py-2 rounded text-xs font-bold cursor-pointer ${isJ ? 'bg-amber-700 text-white' : 'bg-[#1f362d] text-slate-300'}`;
+      document.getElementById('raceTabContent').classList.toggle('hidden', !isR);
+      document.getElementById('horseTabContent').classList.toggle('hidden', !isH);
+      document.getElementById('jockeyTabContent').classList.toggle('hidden', !isJ);
+    }
+
+    function normalizeHorseRow(d) {
+      return {
+        name: d?.name ?? "",
+        bonus: Number(d?.bonus) || 0,
+        placeMod: d?.placeMod ?? "",
+        condMod: d?.condMod ?? "",
+        note: d?.note ?? ""
+      };
+    }
+
+    function normalizeJockeyRow(d) {
+      return {
+        name: d?.name ?? "",
+        dist: d?.dist ?? "",
+        gate: d?.gate ?? "",
+        place: d?.place ?? "",
+        placeMod: Number(d?.placeMod) || 0,
+        condMod: Number(d?.condMod) || 0,
+        bonus: Number(d?.bonus) || 0
+      };
+    }
+
+    function isStyleToken(str) {
+      return /^(逃|逃げ|先|先行|差|差し|追|追込)$/.test(String(str || '').trim());
+    }
+
+    function isOddsToken(str) {
+      const s = String(str || '').trim();
+      if (!s) return false;
+      return /^\d{1,3}(?:\.\d+)?(?:\s*倍)?(?:\s*[\(（]\d+\s*人気[\)）])?$/.test(s);
+    }
+
+    function parseOddsValue(str, fallback = 10.0) {
+      const m = String(str || '').match(/(\d{1,3}(?:\.\d+)?)/);
+      return m ? parseFloat(m[1]) : fallback;
+    }
+
+    function normalizeStyleValue(str, fallback = '差し') {
+      const s = String(str || '').trim();
+      if (/逃/.test(s)) return '逃げ';
+      if (/先/.test(s)) return '先行';
+      if (/追/.test(s)) return '追込';
+      if (/差/.test(s)) return '差し';
+      return fallback;
+    }
+
+    function repairHorseObj(h, idx) {
+      let num = parseInt(h?.num, 10) || (idx + 1);
+      let name = String(h?.name || '').trim();
+      let style = String(h?.style || '差し').trim();
+      let jockey = String(h?.jockey || '未指定').trim();
+      let odds = parseFloat(h?.odds);
+      if (Number.isNaN(odds) || odds <= 0) odds = 10.0;
+
+      if (/^(逃|先|差|追|逃げ|先行|差し|追込)$/.test(name)) {
+        const m = jockey.match(/(\d{1,3}(?:\.\d+)?)/);
+        if (m) odds = parseFloat(m[1]);
+        style = /逃/.test(name) ? '逃げ' : /先/.test(name) ? '先行' : /追/.test(name) ? '追込' : '差し';
+        name = `馬${num}`;
+        if (!jockey || /^\d/.test(jockey)) jockey = '未指定';
+      }
+      if (!/^(逃げ|先行|差し|追込)$/.test(style)) {
+        style = normalizeStyleValue(style, '差し');
+      }
+      if (!jockey) jockey = '未指定';
+
+      return {
+        num,
+        name: name || `馬${num}`,
+        style,
+        fit: h?.fit || 'B',
+        jockey,
+        odds,
+        memo: h?.memo || ''
+      };
+    }
+
+    // "1. ジーティーダーリン / 逃 / 鞍上/52.3 (14人気)" などの形式を正確に分解するパーサー
+    function parseSingleHorseLine(line, fallbackNum) {
+      const cleaned = String(line || '')
+        .replace(/[０-９．]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+        .replace(/[／｜|]/g, '/');
+
+      let num = fallbackNum;
+      let name = '';
+      let style = '差し';
+      let jockey = '';
+      let odds = 10.0;
+
+      const rawParts = cleaned.split('/').map(p => p.trim()).filter(Boolean);
+
+      // 先頭要素に "1. 馬名" や "1 馬名" がある場合は馬番と馬名に分離
+      if (rawParts.length > 0) {
+        const mLead = rawParts[0].match(/^(\d{1,2})[\.\s:：・]+(.+)$/);
+        if (mLead) {
+          num = parseInt(mLead[1], 10);
+          rawParts[0] = mLead[2].trim();
+        } else if (/^\d{1,2}$/.test(rawParts[0])) {
+          num = parseInt(rawParts[0], 10);
+          rawParts.shift();
+        }
+      }
+
+      // 各要素を順番にチェックして、脚質・オッズ・その他（馬名／鞍上）に振り分け
+      const otherTexts = [];
+      rawParts.forEach(part => {
+        if (isStyleToken(part)) {
+          style = normalizeStyleValue(part, style);
+        } else if (isOddsToken(part)) {
+          odds = parseOddsValue(part, odds);
+        } else {
+          otherTexts.push(part);
+        }
+      });
+
+      if (otherTexts.length >= 1) name = otherTexts[0];
+      if (otherTexts.length >= 2) jockey = otherTexts[1];
+      if (!name) name = `馬${num}`;
+
+      return {
+        num,
+        name,
+        style,
+        fit: 'B',
+        jockey: jockey || '未指定',
+        odds,
+        memo: ''
+      };
+    }
+
+    function parseHorsesText(text) {
+      const lines = (text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const list = [];
+      lines.forEach((line, idx) => {
+        if (/^(枠|馬番|馬名|性齢|斤量|騎手|単勝)/.test(line)) return;
+        list.push(parseSingleHorseLine(line, idx + 1));
+      });
+      return list;
+    }
+
+    function horsesArrayToText(arr) {
+      if (!Array.isArray(arr)) return "";
+      return arr.map((raw, idx) => {
+        const h = repairHorseObj(raw, idx);
+        const j = h.jockey ? h.jockey : '未指定';
+        return `${h.num} / ${h.name} / ${h.style} / ${j} / ${h.odds}`;
+      }).join('\n');
+    }
+
+    function updateParsePreview(horsesArr) {
+      const countBadge = document.getElementById('parsedHorseCountBadge');
+      const previewEl = document.getElementById('parsePreviewLine');
+      if (countBadge) countBadge.textContent = `認識: ${horsesArr.length}頭`;
+      if (previewEl) {
+        if (horsesArr.length === 0) {
+          previewEl.textContent = '';
+        } else {
+          const h = horsesArr[0];
+          previewEl.textContent = `1頭目認識結果 → 馬番:${h.num} / 馬名:${h.name} / 脚質:${h.style} / 鞍上:${h.jockey} / オッズ:${h.odds}`;
+        }
+      }
+    }
+
+    function renderRaceList() {
+      const listEl = document.getElementById('masterRaceList');
+      if (!listEl) return;
+      if (masterRacesData.length === 0) {
+        listEl.innerHTML = `<p class="text-slate-500 text-center py-4">登録レースがありません</p>`;
+        return;
+      }
+      listEl.innerHTML = masterRacesData.map((r, i) => `
+        <div onclick="selectMasterRace(${i})" class="p-2.5 rounded border cursor-pointer flex justify-between items-start gap-2 ${i === selectedRaceIdx ? 'bg-emerald-950/70 border-emerald-500' : 'bg-[#121f1a] border-[#264237] hover:border-emerald-700'}">
+          <div>
+            <div class="text-[10px] font-mono text-emerald-400">${r.date || '日付未設定'}</div>
+            <div class="font-bold text-white">${r.raceName || '名称未設定'}</div>
+            <div class="text-[10px] text-slate-400">${r.place || ''}・${r.distance || ''}（${r.horses?.length || 0}頭）</div>
+          </div>
+          <button type="button" onclick="event.stopPropagation(); deleteMasterRace(${i})" class="text-slate-500 hover:text-rose-400 px-1 cursor-pointer">×</button>
+        </div>
+      `).join('');
+    }
+
+    function loadRaceEditor() {
+      const r = masterRacesData[selectedRaceIdx];
+      if (!r) return;
+      const parsedFromRaw = (r.rawHorsesText && r.rawHorsesText.trim())
+        ? parseHorsesText(r.rawHorsesText)
+        : null;
+      r.horses = parsedFromRaw || (r.horses || []).map(repairHorseObj);
+
+      document.getElementById('editRaceDate').value = r.date || '';
+      document.getElementById('editRaceName').value = r.raceName || '';
+      document.getElementById('editRacePlace').value = r.place || '京都';
+      document.getElementById('editRaceDistance').value = r.distance || '芝2200m';
+      document.getElementById('editRaceCondition').value = r.condition || '良';
+      document.getElementById('editRaceHorsesText').value = (r.rawHorsesText && r.rawHorsesText.trim())
+        ? r.rawHorsesText
+        : horsesArrayToText(r.horses);
+      document.getElementById('editRaceColumn').value = r.column || '';
+      updateParsePreview(r.horses);
+    }
+
+    function syncRaceHorsesFromText() {
+      const r = masterRacesData[selectedRaceIdx];
+      if (!r) return;
+      const text = document.getElementById('editRaceHorsesText').value;
+      r.rawHorsesText = text;
+      r.horses = text.trim() ? parseHorsesText(text) : [];
+      updateParsePreview(r.horses);
+      renderRaceList();
+      scheduleAutoSave();
+    }
+
+    function syncRaceEditorToModel() {
+      const r = masterRacesData[selectedRaceIdx];
+      if (!r) return;
+      r.date = document.getElementById('editRaceDate').value.trim();
+      r.raceName = document.getElementById('editRaceName').value.trim();
+      r.place = document.getElementById('editRacePlace').value;
+      r.distance = document.getElementById('editRaceDistance').value;
+      r.condition = document.getElementById('editRaceCondition').value;
+      r.column = document.getElementById('editRaceColumn').value;
+      renderRaceList();
+      scheduleAutoSave();
+    }
+
+    function selectMasterRace(idx) {
+      if (idx === selectedRaceIdx) return;
+      syncRaceEditorToModel();
+      syncRaceHorsesFromText();
+      saveAllMasterData(false);
+      selectedRaceIdx = idx;
+      renderRaceList();
+      loadRaceEditor();
+    }
+
+    function addMasterRace() {
+      syncRaceEditorToModel();
+      syncRaceHorsesFromText();
+      masterRacesData.push({
+        date: "2026/11/22",
+        raceName: "新規レース",
+        place: "京都",
+        distance: "芝1600m",
+        condition: "良",
+        column: "",
+        rawHorsesText: "",
+        horses: []
+      });
+      selectedRaceIdx = masterRacesData.length - 1;
+      renderRaceList();
+      loadRaceEditor();
+      saveAllMasterData(false);
+    }
+
+    function deleteMasterRace(idx) {
+      if (!confirm('このレースを削除しますか？')) return;
+      masterRacesData.splice(idx, 1);
+      if (masterRacesData.length === 0) {
+        masterRacesData.push({ date: "2026/11/22", raceName: "新規レース", place: "京都", distance: "芝1600m", condition: "良", column: "", rawHorsesText: "", horses: [] });
+      }
+      selectedRaceIdx = Math.min(selectedRaceIdx, masterRacesData.length - 1);
+      renderRaceList();
+      loadRaceEditor();
+      saveAllMasterData(false);
+    }
+
+    function loadAllMasterData() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.masterRaces) && parsed.masterRaces.length > 0) {
+            masterRacesData = parsed.masterRaces.map(r => {
+              const horses = (r.rawHorsesText && r.rawHorsesText.trim())
+                ? parseHorsesText(r.rawHorsesText)
+                : (r.horses || []).map(repairHorseObj);
+              return { ...r, horses };
+            });
+          } else if (typeof MASTER_AI_CONFIG !== 'undefined' && Array.isArray(MASTER_AI_CONFIG.races) && MASTER_AI_CONFIG.races.length > 0) {
+            masterRacesData = MASTER_AI_CONFIG.races.map(r => ({
+              ...r,
+              horses: (r.horses || []).map(repairHorseObj)
+            }));
+          }
+          if (parsed.horsesDb) horseMasterData = parsed.horsesDb.map(normalizeHorseRow);
+          if (parsed.jockeysDb) jockeyMasterData = parsed.jockeysDb.map(normalizeJockeyRow);
+          if (parsed.columnText) {
+            document.getElementById('masterColumnInput').value = parsed.columnText;
+            updateAdminCharCount();
+          }
+        } catch (e) {}
+      }
+      selectedRaceIdx = 0;
+      renderRaceList();
+      loadRaceEditor();
+      renderHorseTable();
+      renderJockeyTable();
+      isDirty = false;
+      const badge = document.getElementById('autoSaveBadge');
+      if (badge) badge.textContent = '読込完了（自動保存ON）';
+    }
+
+    function updateAdminCharCount() {
+      const len = document.getElementById('masterColumnInput').value.length;
+      const el = document.getElementById('adminCharCount');
+      el.textContent = `${len.toLocaleString()} 文字`;
+      el.className = `text-xs font-mono ${len >= 1000 ? 'text-amber-400 font-bold' : 'text-emerald-400'}`;
+    }
+
+    function renderHorseTable() {
+      const tbody = document.getElementById('horseMasterTableBody');
+      tbody.innerHTML = '';
+      horseMasterData.forEach((d, i) => {
+        tbody.innerHTML += `<tr>
+          <td class="py-2 px-2"><input type="text" value="${d.name}" oninput="horseMasterData[${i}].name=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1 font-bold"></td>
+          <td class="py-2 px-2"><input type="number" value="${d.bonus}" oninput="horseMasterData[${i}].bonus=parseFloat(this.value)||0;scheduleAutoSave()" class="w-full rounded px-2 py-1 text-right text-emerald-300 font-bold"></td>
+          <td class="py-2 px-2"><input type="text" value="${d.placeMod}" placeholder="例: 京都:+5,-3" oninput="horseMasterData[${i}].placeMod=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1 text-sky-200"></td>
+          <td class="py-2 px-2"><input type="text" value="${d.condMod}" placeholder="例: 重:+6,良:-2" oninput="horseMasterData[${i}].condMod=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1 text-amber-200"></td>
+          <td class="py-2 px-2"><input type="text" value="${d.note}" oninput="horseMasterData[${i}].note=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1"></td>
+          <td class="py-2 px-2 text-center"><button type="button" onclick="horseMasterData.splice(${i},1);renderHorseTable();scheduleAutoSave()" class="text-slate-500 hover:text-rose-400 cursor-pointer">×</button></td>
+        </tr>`;
+      });
+    }
+
+    function renderJockeyTable() {
+      const tbody = document.getElementById('jockeyMasterTableBody');
+      tbody.innerHTML = '';
+      jockeyMasterData.forEach((d, i) => {
+        tbody.innerHTML += `<tr>
+          <td class="py-2 px-2"><input type="text" value="${d.name}" oninput="jockeyMasterData[${i}].name=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1 font-bold"></td>
+          <td class="py-2 px-2"><input type="text" value="${d.dist}" oninput="jockeyMasterData[${i}].dist=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1"></td>
+          <td class="py-2 px-2"><input type="text" value="${d.gate}" oninput="jockeyMasterData[${i}].gate=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1"></td>
+          <td class="py-2 px-2"><input type="text" value="${d.place}" oninput="jockeyMasterData[${i}].place=this.value;scheduleAutoSave()" class="w-full rounded px-2 py-1"></td>
+          <td class="py-2 px-2"><input type="number" value="${d.placeMod}" oninput="jockeyMasterData[${i}].placeMod=parseFloat(this.value)||0;scheduleAutoSave()" class="w-full rounded px-2 py-1 text-right text-sky-300 font-bold"></td>
+          <td class="py-2 px-2"><input type="number" value="${d.condMod}" oninput="jockeyMasterData[${i}].condMod=parseFloat(this.value)||0;scheduleAutoSave()" class="w-full rounded px-2 py-1 text-right text-emerald-300 font-bold"></td>
+          <td class="py-2 px-2"><input type="number" value="${d.bonus}" oninput="jockeyMasterData[${i}].bonus=parseFloat(this.value)||0;scheduleAutoSave()" class="w-full rounded px-2 py-1 text-right text-amber-300 font-bold"></td>
+          <td class="py-2 px-2 text-center"><button type="button" onclick="jockeyMasterData.splice(${i},1);renderJockeyTable();scheduleAutoSave()" class="text-slate-500 hover:text-rose-400 cursor-pointer">×</button></td>
+        </tr>`;
+      });
+    }
+
+    function addHorseMasterRow() {
+      horseMasterData.push({ name: "", bonus: 0, placeMod: "", condMod: "", note: "" });
+      renderHorseTable();
+      scheduleAutoSave();
+    }
+
+    function addJockeyMasterRow() {
+      jockeyMasterData.push({ name: "", dist: "", gate: "", place: "", placeMod: 0, condMod: 0, bonus: 0 });
+      renderJockeyTable();
+      scheduleAutoSave();
+    }
+
+    function saveAllMasterData(showAlert = false) {
+      const columnText = document.getElementById('masterColumnInput').value;
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      saved.masterRaces = masterRacesData.map(r => ({
+        ...r,
+        horses: (r.horses || []).map(repairHorseObj)
+      }));
+      saved.horsesDb = horseMasterData.map(normalizeHorseRow);
+      saved.jockeysDb = jockeyMasterData.map(normalizeJockeyRow);
+      saved.columnText = columnText;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      isDirty = false;
+      const now = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const badge = document.getElementById('autoSaveBadge');
+      if (badge) badge.textContent = `自動保存済 (${now})`;
+      if (showAlert) alert('日付別レース・マスターデータ・コラムを保存しました！');
+    }
+
+    function openMasterJsCodeModal() {
+      saveAllMasterData(false);
+      const baseConfig = (typeof MASTER_AI_CONFIG !== 'undefined' && MASTER_AI_CONFIG) ? { ...MASTER_AI_CONFIG } : {};
+      baseConfig.races = masterRacesData.map(r => ({
+        date: r.date,
+        raceName: r.raceName,
+        place: r.place,
+        distance: r.distance,
+        condition: r.condition,
+        column: r.column,
+        horses: (r.horses || []).map(repairHorseObj)
+      }));
+      baseConfig.horsesDb = horseMasterData.map(normalizeHorseRow);
+      baseConfig.jockeysDb = jockeyMasterData.map(normalizeJockeyRow);
+      baseConfig.defaultColumn = document.getElementById('masterColumnInput').value;
+
+      const jsContent = `// 自動生成されたマスターデータ (${new Date().toLocaleString('ja-JP')})\nconst MASTER_AI_CONFIG = ${JSON.stringify(baseConfig, null, 2)};\n`;
+      document.getElementById('masterJsCodeTextarea').value = jsContent;
+      document.getElementById('masterJsModal').classList.remove('hidden');
+    }
+
+    function closeMasterJsCodeModal() {
+      document.getElementById('masterJsModal').classList.add('hidden');
+    }
+
+    function copyMasterJsCode() {
+      const ta = document.getElementById('masterJsCodeTextarea');
+      if (!ta) return;
+      ta.select();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(() => {
+          alert('ai-master.js 用コードをクリップボードにコピーしました！');
+        }).catch(() => {
+          document.execCommand('copy');
+          alert('ai-master.js 用コードをコピーしました！');
+        });
+      } else {
+        document.execCommand('copy');
+        alert('ai-master.js 用コードをコピーしました！');
+      }
+    }
+
+    function exportMasterData() {
+      saveAllMasterData(false);
+      const exportData = {
+        masterRaces: masterRacesData.map(r => ({
+          ...r,
+          horses: (r.horses || []).map(repairHorseObj)
+        })),
+        horses: horseMasterData.map(normalizeHorseRow),
+        jockeys: jockeyMasterData.map(normalizeJockeyRow),
+        columnText: document.getElementById('masterColumnInput').value
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "enpitsu_master_backup.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importMasterData(event) {
+      const file = event?.target?.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          const rawRaces = Array.isArray(parsed.masterRaces) ? parsed.masterRaces : null;
+          const rawHorses = Array.isArray(parsed.horsesDb) ? parsed.horsesDb : (Array.isArray(parsed.horses) ? parsed.horses : null);
+          const rawJockeys = Array.isArray(parsed.jockeysDb) ? parsed.jockeysDb : (Array.isArray(parsed.jockeys) ? parsed.jockeys : null);
+          if (!rawRaces && !rawHorses && !rawJockeys && typeof parsed.columnText !== 'string') {
+            alert('復元できるデータが見つかりませんでした。');
+            return;
+          }
+          if (rawRaces && rawRaces.length > 0) {
+            masterRacesData = rawRaces.map(r => ({
+              ...r,
+              horses: (r.horses || []).map(repairHorseObj)
+            }));
+            selectedRaceIdx = 0;
+            renderRaceList();
+            loadRaceEditor();
+          }
+          if (rawHorses) horseMasterData = rawHorses.map(normalizeHorseRow);
+          if (rawJockeys) jockeyMasterData = rawJockeys.map(normalizeJockeyRow);
+          if (typeof parsed.columnText === 'string') {
+            document.getElementById('masterColumnInput').value = parsed.columnText;
+            updateAdminCharCount();
+          }
+          saveAllMasterData(false);
+          renderHorseTable();
+          renderJockeyTable();
+          alert('バックアップファイルから復元しました！');
+        } catch (err) {
+          alert('読み込みに失敗しました: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+  </script>
+</body>
+</html>

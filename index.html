@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI競馬予想 えんぴつ先生｜期待値（EV）分析シミュレーター</title>
+  <meta name="description" content="AI競馬予想 えんぴつ先生は、脚質バランス・適性評価・オッズから期待値（妙味）を自動算出する無料競馬予想＆分析シミュレーターです。">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="ai-master.js"></script>
+  <style>
+    body { background-color: #0b1310; color: #e2e8f0; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; }
+    .turf-card { background: linear-gradient(145deg, #121f1a 0%, #0d1713 100%); border: 1px solid #1f362d; }
+    .gold-text { color: #d4af37; }
+    .ad-box { background-color: #111916; border: 1px dashed #2d4a3e; color: #64748b; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 0.75rem; }
+    input, select, textarea {
+      background-color: #f8fafc !important;
+      border: 1px solid #264237;
+      color: #0f172a !important;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #10b981;
+    }
+    #bulkPasteInput, #raceColumnInput {
+      background-color: #f8fafc !important;
+      color: #0f172a !important;
+    }
+    .btn-exec-bulk {
+      background-color: #d97706 !important;
+      color: #ffffff !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    .btn-exec-bulk:hover {
+      background-color: #f59e0b !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ヘッダー -->
+  <header class="bg-[#080e0c] border-b border-[#1f362d] sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+      <a href="index.html" class="flex items-center gap-2">
+        <span class="text-xl">✏️</span>
+        <div>
+          <h1 class="text-base font-bold text-white">AI競馬予想 えんぴつ先生</h1>
+          <p class="text-[10px] text-emerald-400">「馬」×「鞍上」×「馬場状態」クロス分析</p>
+        </div>
+      </a>
+      <nav class="flex flex-wrap gap-4 text-xs text-slate-300">
+        <a href="index.html" class="text-emerald-400 font-bold">予想ツール</a>
+        <a href="#historySection" class="hover:text-emerald-400 transition">予想履歴</a>
+        <a href="about.html" class="hover:text-emerald-400 transition">運営者・ロジック</a>
+        <a href="contact.html" class="hover:text-emerald-400 transition">お問い合わせ</a>
+        <a href="privacy.html" class="hover:text-emerald-400 transition">プライバシーポリシー</a>
+        <a href="master-admin.html" class="text-amber-400 font-bold hover:underline">🔒 Master管理</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+
+    <!-- 広告枠① -->
+    <div class="ad-box h-20 rounded-lg">
+      <span>【広告スペース①】ヘッダー下 レスポンシブバナー（AdSenseコードをここに配置）</span>
+    </div>
+
+    <!-- 操作バー＆出走馬テーブル -->
+    <section class="turf-card rounded-xl p-4 md:p-6 shadow-lg">
+      <div class="flex flex-wrap justify-between items-center gap-3 border-b border-[#1f362d] pb-4 mb-4">
+        <div>
+          <h2 class="text-base font-bold text-white">クロス掛け合わせ期待値（EV）分析</h2>
+          <p class="text-xs text-slate-400">カレンダーから日付とレースを選ぶだけでMasterデータを引用できます（独自入力・一括取込も可能）</p>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="openBulkPasteModal()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-2 rounded cursor-pointer">📋 出馬表一括取込</button>
+          <button type="button" onclick="clearAllHorses()" class="bg-rose-900/70 hover:bg-rose-800 text-rose-200 text-xs font-bold px-3 py-2 rounded cursor-pointer">全クリア</button>
+          <button type="button" onclick="addHorseRow()" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded cursor-pointer">＋ 馬を追加</button>
+        </div>
+      </div>
+
+      <!-- Master引用バー（カレンダー選択 → レース名プルダウン） -->
+      <div class="mb-4 p-3.5 rounded-lg bg-[#080e0c] border border-emerald-900/60 space-y-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs font-bold text-emerald-400">⚡ Masterデータから引用（カレンダー → レース選択）</span>
+          <span id="masterQuoteStatus" class="text-[11px] text-slate-400">カレンダーで日付を選ぶと対象レースが表示されます</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">開催日（カレンダー選択）</label>
+            <input type="date" id="masterDateInput" onchange="onMasterDateChange()" class="w-full rounded px-2.5 py-1.5 text-sm font-mono">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[11px] text-slate-400 mb-1">対象レース（選ぶと出走表・条件・コラムを反映）</label>
+            <select id="masterRaceSelect" onchange="applySelectedMasterRace()" class="w-full rounded px-2.5 py-1.5 text-sm font-bold">
+              <option value="">-- 日付を選択してください --</option>
+            </select>
+          </div>
+        </div>
+        <div id="masterRegisteredDatesBar" class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[11px]"></div>
+      </div>
+
+      <!-- レース条件 -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+        <div class="col-span-2"><label class="block text-[11px] text-slate-400 mb-1">レース名</label><input type="text" id="raceName" placeholder="例：マイルCS" oninput="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"></div>
+        <div><label class="block text-[11px] text-slate-400 mb-1">開催場所</label><select id="racePlace" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="京都">京都</option><option value="東京">東京</option><option value="中山">中山</option><option value="阪神">阪神</option><option value="中京">中京</option><option value="新潟">新潟</option><option value="札幌">札幌</option><option value="函館">函館</option><option value="小倉">小倉</option><option value="福島">福島</option></select></div>
+        <div><label class="block text-[11px] text-slate-400 mb-1">距離</label><select id="raceDistance" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="芝1200m">芝1200m</option><option value="芝1600m" selected>芝1600m</option><option value="芝1800m">芝1800m</option><option value="芝2000m">芝2000m</option><option value="芝2200m">芝2200m</option><option value="芝2400m">芝2400m</option><option value="芝2500m">芝2500m</option><option value="ダ1200m">ダ1200m</option><option value="ダ1400m">ダ1400m</option><option value="ダ1800m">ダ1800m</option></select></div>
+        <div><label class="block text-[11px] text-slate-400 mb-1">馬場</label><select id="trackCondition" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option></select></div>
+        <div><label class="block text-[11px] text-slate-400 mb-1">スタンス</label><select id="stanceMode" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="balance">バランス</option><option value="solid">堅実</option><option value="value">穴狙い</option></select></div>
+      </div>
+
+      <!-- ペース自動判定バー -->
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2 bg-[#080e0c] border border-[#1f362d] rounded-lg px-4 py-2">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 font-bold">📊 展開・ペース（自動判定）：</span>
+          <select id="paceSelect" onchange="calculateAll()" class="rounded px-2.5 py-1 text-xs font-bold">
+            <option value="スローペース">スローペース</option>
+            <option value="ミドルペース" selected>ミドルペース</option>
+            <option value="ハイペース">ハイペース</option>
+          </select>
+        </div>
+        <button type="button" onclick="autoDetectPace(true)" class="bg-[#1f362d] hover:bg-emerald-900/60 text-emerald-300 text-xs font-bold px-3 py-1 rounded transition border border-emerald-800/50 cursor-pointer">
+          <span>🔄</span> 自動再判定
+        </button>
+      </div>
+
+      <!-- テーブル -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-[#264237] text-slate-400 text-[11px]">
+              <th class="py-2 px-2 w-12">馬番</th>
+              <th class="py-2 px-2">馬名</th>
+              <th class="py-2 px-2 w-24">脚質</th>
+              <th class="py-2 px-2 w-20">評価</th>
+              <th class="py-2 px-2 w-28">想定鞍上</th>
+              <th class="py-2 px-2 w-20">単勝</th>
+              <th class="py-2 px-2">メモ</th>
+              <th class="py-2 px-2 w-10 text-center">印</th>
+              <th class="py-2 px-2 w-14 text-right">スコア</th>
+              <th class="py-2 px-2 w-14 text-right">期待値</th>
+              <th class="py-2 px-2 w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="horseTableBody" class="divide-y divide-[#1a2e26]"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 広告枠② -->
+    <div class="ad-box h-20 rounded-lg">
+      <span>【広告スペース②】コンテンツ内 レスポンシブ広告（AdSenseコードをここに配置）</span>
+    </div>
+
+    <!-- クロス分析ランキング -->
+    <section class="turf-card rounded-xl p-5 space-y-3">
+      <div class="flex flex-wrap justify-between items-center gap-2 border-b border-[#1f362d] pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2"><span class="gold-text">★</span> クロス分析ランキング</h3>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="saveCurrentPrediction()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded cursor-pointer">💾 予想を保存</button>
+          <button type="button" onclick="generateShareImage()" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded cursor-pointer">🐦 SNSカード作成</button>
+        </div>
+      </div>
+      <div id="rankingList" class="space-y-2">
+        <p class="text-xs text-slate-500 text-center py-4">出走馬が入力されるとランキングが表示されます</p>
+      </div>
+    </section>
+
+    <!-- 過去の予想履歴セクション -->
+    <section id="historySection" class="turf-card rounded-xl p-5 space-y-3">
+      <div class="flex justify-between items-center border-b border-[#1f362d] pb-2">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2"><span>📅</span> 保存済みの予想履歴</h3>
+        <button type="button" onclick="clearHistory()" class="text-xs text-rose-400 hover:text-rose-300 cursor-pointer">履歴を全削除</button>
+      </div>
+      <div id="historyListContainer" class="space-y-2">
+        <p class="text-xs text-slate-500 text-center py-3">保存された予想履歴はありません。</p>
+      </div>
+    </section>
+
+    <!-- レース回顧・独自コラム表示欄 -->
+    <section class="turf-card rounded-xl p-5 space-y-3 bg-[#080e0c]/30">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2"><span>📝</span> 今週のレース展望・回顧コラム</h3>
+      <div id="displayColumnBox" class="text-xs leading-relaxed whitespace-pre-wrap p-3 rounded bg-[#f8fafc] text-slate-900 border border-[#264237] min-h-[120px]">
+        （Master管理画面で入力されたコラム、または選択したレースのコラムがここに自動表示されます）
+      </div>
+    </section>
+
+    <!-- コピペモーダル -->
+    <div id="bulkPasteModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div class="bg-[#121f1a] border border-[#264237] rounded-xl p-5 max-w-xl w-full space-y-3 shadow-2xl">
+        <div class="flex justify-between items-center border-b border-[#1f362d] pb-2">
+          <h3 class="text-sm font-bold text-white">📋 出馬表テキスト一括取込（独自レース用）</h3>
+          <button type="button" onclick="closeBulkPasteModal()" class="text-slate-400 hover:text-white text-base font-bold px-2 cursor-pointer">×</button>
+        </div>
+        <div class="text-[11px] text-amber-300 bg-[#080e0c] border border-amber-800/40 rounded px-3 py-2 leading-relaxed">
+          1行につき <strong>「馬番」/「馬名」/「脚質」/「鞍上」/「オッズ」</strong> の順で入力してください（Masterデータは上書きされません）。<br>
+          <span class="text-slate-400">例：7 / カムニャック / 差し / 川田 / 4.2</span>
+        </div>
+        <textarea id="bulkPasteInput" rows="7" class="w-full text-xs p-3 rounded font-mono" placeholder="馬番 / 馬名 / 脚質 / 鞍上 / オッズ&#10;1 / ラヴァンダ / 差し / 岩田望 / 32.0&#10;7 / カムニャック / 差し / 川田 / 4.2"></textarea>
+        <div class="flex flex-wrap justify-between items-center gap-2 pt-2">
+          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" id="replaceExistingCheck" checked class="accent-emerald-500 w-4 h-4">
+            <span>現在の入力リストを上書きして置き換える</span>
+          </label>
+          <div class="flex gap-2">
+            <button type="button" onclick="clearBulkPasteInput()" class="bg-rose-900 hover:bg-rose-800 text-rose-200 text-xs font-bold px-3 py-2 rounded cursor-pointer">クリア</button>
+            <button type="button" id="executeBulkPasteBtn" onclick="executeBulkPaste()" class="btn-exec-bulk text-xs font-bold px-4 py-2 rounded cursor-pointer">⚡ 一括反映</button>
+            <button type="button" onclick="closeBulkPasteModal()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-3 py-2 rounded cursor-pointer">閉じる</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SNSシェア用カードモーダル -->
+    <div id="shareModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div class="bg-[#121f1a] border border-[#264237] rounded-xl p-5 max-w-lg w-full space-y-4 text-center shadow-2xl">
+        <h3 class="text-base font-bold text-white">📸 SNS用予想カード画像が完成しました！</h3>
+        <div class="flex justify-center bg-[#080e0c] p-2 rounded border border-[#1f362d] overflow-x-auto">
+          <canvas id="shareCanvas" width="600" height="600" class="max-w-full h-auto rounded shadow"></canvas>
+        </div>
+        <div class="flex flex-wrap items-center justify-center gap-3 pt-1">
+          <a id="downloadLink" download="ai-enpitsu-keiba.png" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-5 py-2.5 rounded cursor-pointer">💾 画像をダウンロード</a>
+          <button type="button" onclick="closeShareModal()" class="bg-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded cursor-pointer">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-[#080e0c] border-t border-[#1f362d] mt-10 py-8 text-xs text-slate-400 text-center space-y-2">
+    <div class="flex flex-wrap justify-center gap-4 text-slate-400">
+      <a href="index.html" class="hover:text-emerald-400 transition">予想ツール</a>
+      <a href="about.html" class="hover:text-emerald-400 transition">運営者・ロジック</a>
+      <a href="contact.html" class="hover:text-emerald-400 transition">お問い合わせ</a>
+      <a href="privacy.html" class="hover:text-emerald-400 transition">プライバシーポリシー</a>
+    </div>
+    <p class="text-[11px] text-slate-500">※当ツールはデータ分析による期待値シミュレーションを提供するものであり、的中を保証するものではありません。</p>
+    <p>&copy; 2026 AI競馬予想 えんぴつ先生 All Rights Reserved.</p>
+  </footer>
+
+  <script>
+    let horses = [];
+    let lastSortedResult = [];
+    let predictionHistory = [];
+    let isCustomSession = false;
+    const STORAGE_KEY = 'enpitsu_keiba_data_v16';
+
+    const FALLBACK_MASTER_RACES = [
+      {
+        date: '2026/11/15',
+        raceName: 'エリザベス女王杯（G1）',
+        place: '京都',
+        distance: '芝2200m',
+        condition: '良',
+        column: '【2026/11/15 エリザベス女王杯 展望】\n京都芝2200mは内回りの持続力勝負。好位〜中団からロスなく立ち回れる差し・先行馬と、単勝オッズの歪み（EV高水準）に注目。',
+        horses: [
+          { num: 1, name: 'ラヴァンダ', style: '差し', fit: 'A', jockey: '岩田望', odds: 32.0, memo: '内枠利・妙味大' },
+          { num: 7, name: 'カムニャック', style: '差し', fit: 'S', jockey: '川田', odds: 4.2, memo: '地力上位・軸候補' },
+          { num: 11, name: 'レガレイラ', style: '追込', fit: 'A', jockey: '戸崎圭', odds: 3.5, memo: '末脚確実' }
+        ]
+      },
+      {
+        date: '2026/11/15',
+        raceName: '福島記念（G3）',
+        place: '福島',
+        distance: '芝2000m',
+        condition: '良',
+        column: '【2026/11/15 福島記念 展望】\n小回り福島の芝2000mは先行力と器用さが重要。ペースが上がりきらない展開なら前残りの期待値が上昇。',
+        horses: [
+          { num: 4, name: 'フェアエールング', style: '先行', fit: 'A', jockey: '丹内', odds: 6.8, memo: '小回り適性◎' },
+          { num: 9, name: 'アラタ', style: '差し', fit: 'B', jockey: '横山武', odds: 8.5, memo: '展開待ち' }
+        ]
+      }
+    ];
+
+    // 列ズレ修復ヘルパー
+    function repairHorseObj(h, idx) {
+      let num = parseInt(h?.num, 10) || (idx + 1);
+      let name = String(h?.name || '').trim();
+      let style = String(h?.style || '差し').trim();
+      let jockey = String(h?.jockey || '未指定').trim();
+      let odds = parseFloat(h?.odds) || 10.0;
+
+      if (/^(逃|先|差|追|逃げ|先行|差し|追込)$/.test(name) && /\d+\.\d/.test(jockey)) {
+        const m = jockey.match(/(\d{1,3}\.\d)/);
+        if (m) odds = parseFloat(m[1]);
+        style = /逃/.test(name) ? '逃げ' : /先/.test(name) ? '先行' : /追/.test(name) ? '追込' : '差し';
+        name = `馬${num}`;
+        jockey = '未指定';
+      }
+      if (!/^(逃げ|先行|差し|追込)$/.test(style)) {
+        style = /逃/.test(style) ? '逃げ' : /先/.test(style) ? '先行' : /追/.test(style) ? '追込' : '差し';
+      }
+      if (!jockey) jockey = '未指定';
+      return {
+        num,
+        name,
+        style,
+        fit: h?.fit || 'B',
+        jockey,
+        odds,
+        memo: h?.memo || ''
+      };
+    }
+
+    // 特徴ベースで1行を解析する高精度パーサー
+    function parseSingleHorseLine(line, fallbackNum) {
+      const cleaned = String(line || '')
+        .replace(/[０-９．]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+        .replace(/[／｜|]/g, '/');
+
+      const tokens = cleaned.includes('/')
+        ? cleaned.split('/').map(t => t.trim()).filter(Boolean)
+        : cleaned.split(/\s+/).map(t => t.trim()).filter(Boolean);
+
+      let num = fallbackNum;
+      let name = '';
+      let style = '差し';
+      let jockey = '未指定';
+      let odds = 10.0;
+
+      if (tokens.length > 0) {
+        const first = tokens[0];
+        if (/^\d{1,2}$/.test(first)) {
+          num = parseInt(first, 10);
+          tokens.shift();
+        } else {
+          const mPrefix = first.match(/^(\d{1,2})[\.\s:：・]+(.+)$/);
+          if (mPrefix) {
+            num = parseInt(mPrefix[1], 10);
+            tokens[0] = mPrefix[2].trim();
+          }
+        }
+      }
+
+      const remaining = [];
+      tokens.forEach(tok => {
+        if (/^(逃|逃げ|先|先行|差|差し|追|追込)$/.test(tok)) {
+          style = /逃/.test(tok) ? '逃げ' : /先/.test(tok) ? '先行' : /追/.test(tok) ? '追込' : '差し';
+        } else if (/^\d{1,3}(?:\.\d+)?(?:\s*倍)?(?:\s*[\(（]\d+\s*人気[\)）])?$/.test(tok)) {
+          const mOdds = tok.match(/(\d{1,3}(?:\.\d+)?)/);
+          if (mOdds) odds = parseFloat(mOdds[1]);
+        } else {
+          remaining.push(tok);
+        }
+      });
+
+      if (remaining.length >= 1) name = remaining[0];
+      if (remaining.length >= 2) jockey = remaining[1];
+      if (!name) name = `馬${num}`;
+      if (!jockey) jockey = '未指定';
+
+      return { num, name, style, fit: 'B', jockey, odds, memo: '' };
+    }
+
+    function normalizeDateStr(raw) {
+      if (!raw) return '';
+      const s = String(raw).trim().replace(/[-.]/g, '/');
+      const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+      if (!m) return s;
+      return `${m[1]}/${String(m[2]).padStart(2, '0')}/${String(m[3]).padStart(2, '0')}`;
+    }
+
+    function toDateInputValue(slashDate) {
+      const norm = normalizeDateStr(slashDate);
+      const m = norm.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+      return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+    }
+
+    function pickMasterDate(slashDate) {
+      const dateInput = document.getElementById('masterDateInput');
+      if (!dateInput) return;
+      isCustomSession = false;
+      dateInput.value = toDateInputValue(slashDate);
+      onMasterDateChange(true);
+    }
+
+    function renderRegisteredDateChips(dates) {
+      const bar = document.getElementById('masterRegisteredDatesBar');
+      if (!bar) return;
+      if (!dates || dates.length === 0) {
+        bar.innerHTML = `<span class="text-slate-500">登録済みの開催日データはありません</span>`;
+        return;
+      }
+      const currentSlash = normalizeDateStr(document.getElementById('masterDateInput')?.value || '');
+      bar.innerHTML = `<span class="text-slate-400">登録日:</span>` + dates.map(d => {
+        const active = d === currentSlash;
+        return `<button type="button" onclick="pickMasterDate('${d}')" class="px-2 py-0.5 rounded font-mono cursor-pointer border ${active ? 'bg-emerald-700 text-white border-emerald-400 font-bold' : 'bg-[#121f1a] text-emerald-300 border-[#264237] hover:border-emerald-600'}">${d}</button>`;
+      }).join('');
+    }
+
+    function getAllMasterRaces() {
+      const list = [];
+
+      if (typeof MASTER_AI_CONFIG !== 'undefined' && MASTER_AI_CONFIG) {
+        if (Array.isArray(MASTER_AI_CONFIG.races)) {
+          MASTER_AI_CONFIG.races.forEach(r => list.push({
+            ...r,
+            date: normalizeDateStr(r.date),
+            horses: (r.horses || []).map(repairHorseObj)
+          }));
+        }
+        if (MASTER_AI_CONFIG.racesByDate && typeof MASTER_AI_CONFIG.racesByDate === 'object') {
+          Object.keys(MASTER_AI_CONFIG.racesByDate).forEach(d => {
+            const arr = MASTER_AI_CONFIG.racesByDate[d];
+            if (Array.isArray(arr)) {
+              arr.forEach(r => list.push({
+                ...r,
+                date: normalizeDateStr(r.date || d),
+                horses: (r.horses || []).map(repairHorseObj)
+              }));
+            }
+          });
+        }
+      }
+
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        if (Array.isArray(saved.masterRaces)) {
+          saved.masterRaces.forEach(r => list.push({
+            ...r,
+            date: normalizeDateStr(r.date),
+            horses: (r.horses || []).map(repairHorseObj)
+          }));
+        }
+      } catch (e) {}
+
+      FALLBACK_MASTER_RACES.forEach(fb => {
+        const exists = list.some(item => item.date === fb.date && item.raceName === fb.raceName);
+        if (!exists) list.push({ ...fb, horses: (fb.horses || []).map(repairHorseObj) });
+      });
+
+      return list;
+    }
+
+    function initMasterDatePicker() {
+      const allRaces = getAllMasterRaces();
+      const dates = Array.from(new Set(allRaces.map(r => r.date).filter(Boolean))).sort();
+      const dateInput = document.getElementById('masterDateInput');
+      if (dateInput && !dateInput.value && dates.length > 0) {
+        const defaultSlash = dates.includes('2026/11/15') ? '2026/11/15' : dates[0];
+        dateInput.value = toDateInputValue(defaultSlash);
+      }
+      onMasterDateChange(!isCustomSession && horses.length === 0);
+    }
+
+    function onMasterDateChange(silent = false) {
+      const dateInput = document.getElementById('masterDateInput');
+      const selectEl = document.getElementById('masterRaceSelect');
+      const statusEl = document.getElementById('masterQuoteStatus');
+      if (!dateInput || !selectEl) return;
+
+      const allRaces = getAllMasterRaces();
+      const dates = Array.from(new Set(allRaces.map(r => r.date).filter(Boolean))).sort();
+      renderRegisteredDateChips(dates);
+
+      const targetDate = normalizeDateStr(dateInput.value);
+      const matched = allRaces.filter(r => r.date === targetDate);
+
+      if (!targetDate) {
+        selectEl.innerHTML = `<option value="">-- カレンダーで日付を選択してください --</option>`;
+        if (statusEl) statusEl.textContent = 'カレンダーで日付を選ぶと対象レースが表示されます';
+        return;
+      }
+
+      if (matched.length === 0) {
+        selectEl.innerHTML = `<option value="">-- ${targetDate} の登録レースはありません --</option>`;
+        if (statusEl) statusEl.textContent = `${targetDate} に該当レースなし（手動入力・一括取込をご利用ください）`;
+        return;
+      }
+
+      selectEl.innerHTML = `<option value="">-- レースを選択してください（${matched.length}件） --</option>` +
+        matched.map((r, idx) => `<option value="${idx}">${r.raceName}（${r.place || ''}・${r.distance || ''}）</option>`).join('');
+
+      if (statusEl) {
+        statusEl.textContent = `${targetDate} のレースが ${matched.length} 件見つかりました`;
+      }
+
+      if (silent && matched.length > 0) {
+        selectEl.value = "0";
+        applySelectedMasterRace();
+      }
+    }
+
+    function getRaceColumnText(race) {
+      if (!race || typeof race !== 'object') return '';
+      const candidates = [
+        race.column,
+        race.comment,
+        race.review,
+        race.note,
+        race.memo,
+        race.text
+      ];
+      const found = candidates.find(v => typeof v === 'string' && v.trim().length > 0);
+      return found ? found.trim() : '';
+    }
+
+    function applySelectedMasterRace() {
+      const dateInput = document.getElementById('masterDateInput');
+      const selectEl = document.getElementById('masterRaceSelect');
+      if (!dateInput || !selectEl || selectEl.value === '') return;
+
+      const targetDate = normalizeDateStr(dateInput.value);
+      const matched = getAllMasterRaces().filter(r => r.date === targetDate);
+      const race = matched[parseInt(selectEl.value, 10)];
+      if (!race) return;
+
+      isCustomSession = false;
+      if (race.raceName) document.getElementById('raceName').value = race.raceName;
+      if (race.place) document.getElementById('racePlace').value = race.place;
+      if (race.distance) document.getElementById('raceDistance').value = race.distance;
+      if (race.condition) document.getElementById('trackCondition').value = race.condition;
+
+      if (Array.isArray(race.horses) && race.horses.length > 0) {
+        horses = race.horses.map((h, i) => repairHorseObj(h, i));
+      }
+
+      const colBox = document.getElementById('displayColumnBox');
+      if (colBox) {
+        const colText = getRaceColumnText(race);
+        if (colText) {
+          colBox.textContent = colText;
+          colBox.style.color = '#0f172a';
+        } else {
+          colBox.textContent = 'コラム未登録';
+          colBox.style.color = '#64748b';
+        }
+      }
+
+      autoDetectPace(false);
+      renderTable();
+      calculateAll();
+    }
+
+    function openBulkPasteModal() {
+      const modal = document.getElementById('bulkPasteModal');
+      if (modal) modal.classList.remove('hidden');
+      const btn = document.getElementById('executeBulkPasteBtn');
+      if (btn) {
+        btn.disabled = false;
+        btn.onclick = function(e) {
+          if (e) e.preventDefault();
+          executeBulkPaste();
+        };
+      }
+    }
+
+    function closeBulkPasteModal() {
+      const modal = document.getElementById('bulkPasteModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function closeShareModal() {
+      const modal = document.getElementById('shareModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function clearBulkPasteInput() {
+      const ta = document.getElementById('bulkPasteInput');
+      if (ta) ta.value = "";
+    }
+
+    function executeBulkPaste() {
+      try {
+        const ta = document.getElementById('bulkPasteInput');
+        if (!ta) return;
+        const text = ta.value || "";
+        if (!text.trim()) {
+          alert('出馬表のテキストを入力・貼り付けしてください。\n形式例：7 / カムニャック / 差し / 川田 / 4.2');
+          return;
+        }
+        const replaceCheck = document.getElementById('replaceExistingCheck');
+        const replace = replaceCheck ? replaceCheck.checked : true;
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        const newHorses = [];
+        let cnt = replace ? 1 : horses.length + 1;
+
+        lines.forEach((line) => {
+          if (/^(枠|馬番|馬名|性齢|斤量|騎手|単勝)/.test(line)) return;
+          newHorses.push(parseSingleHorseLine(line, cnt));
+          cnt++;
+        });
+
+        if (newHorses.length === 0) {
+          alert('出馬表データを読み取れませんでした。「馬番 / 馬名 / 脚質 / 鞍上 / オッズ」の形式をご確認ください。');
+          return;
+        }
+
+        isCustomSession = true;
+        horses = replace ? newHorses : horses.concat(newHorses);
+        autoDetectPace(false);
+        renderTable();
+        calculateAll();
+        closeBulkPasteModal();
+      } catch (err) {
+        alert('一括反映中にエラーが発生しました: ' + err.message);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          horses = (parsed.horses || []).map(repairHorseObj);
+          predictionHistory = parsed.history || [];
+          const colBox = document.getElementById('displayColumnBox');
+          if (colBox) {
+            if (parsed.columnText && parsed.columnText.trim()) {
+              colBox.textContent = parsed.columnText;
+              colBox.style.color = "#0f172a";
+            } else {
+              colBox.textContent = 'コラム未登録';
+              colBox.style.color = "#64748b";
+            }
+          }
+        }
+        renderHistory();
+        initMasterDatePicker();
+        if (horses.length === 0) {
+          const ta = document.getElementById('bulkPasteInput');
+          if (ta) {
+            ta.value = `1 / ラヴァンダ / 差し / 岩田望 / 32.0\n7 / カムニャック / 差し / 川田 / 4.2`;
+          }
+          executeBulkPaste();
+        } else {
+          autoDetectPace(false);
+          renderTable();
+          calculateAll();
+        }
+      } catch (e) {
+        renderTable();
+      }
+    });
+
+    function autoDetectPace(showAlert = false) {
+      if (!horses || horses.length === 0) return;
+      const frontRunners = horses.filter(h => h.style === '逃げ' || h.style === '先行').length;
+      const ratio = frontRunners / horses.length;
+      const paceSelect = document.getElementById('paceSelect');
+      if (paceSelect) {
+        if (ratio >= 0.5) paceSelect.value = "ハイペース";
+        else if (ratio <= 0.25) paceSelect.value = "スローペース";
+        else paceSelect.value = "ミドルペース";
+      }
+      calculateAll();
+      if (showAlert) alert('出走馬の脚質バランスから展開ペースを再判定しました！');
+    }
+
+    // Master側データ（masterRaces / horsesDb / jockeysDb / columnText）を保持したまま予想作業データのみ保存
+    function saveStorage() {
+      try {
+        const currentRaw = localStorage.getItem(STORAGE_KEY);
+        const saved = currentRaw ? JSON.parse(currentRaw) : {};
+        saved.horses = horses.map(repairHorseObj);
+        saved.history = predictionHistory;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      } catch (e) {}
+    }
+
+    function addHorseRow() {
+      isCustomSession = true;
+      horses.push({ num: horses.length + 1, name: '', style: '先行', fit: 'B', jockey: '川田', odds: 20.0, memo: '' });
+      autoDetectPace(false);
+      renderTable();
+      calculateAll();
+    }
+
+    function clearAllHorses() {
+      isCustomSession = true;
+      horses = [];
+      renderTable();
+      calculateAll();
+    }
+
+    function removeHorse(i) {
+      isCustomSession = true;
+      horses.splice(i, 1);
+      autoDetectPace(false);
+      renderTable();
+      calculateAll();
+    }
+
+    function updateHorse(i, field, val) {
+      horses[i][field] = ['num', 'odds'].includes(field) ? (parseFloat(val) || 0) : val;
+      if (field === 'style') autoDetectPace(false);
+      calculateAll();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('horseTableBody');
+      if (!tbody) return;
+      if (horses.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-slate-500">データがありません</td></tr>`;
+        return;
+      }
+      horses = horses.map(repairHorseObj);
+      tbody.innerHTML = horses.map((h, i) => `
+        <tr class="hover:bg-[#14241e]">
+          <td class="py-1.5 px-2"><input type="number" value="${h.num}" onchange="updateHorse(${i}, 'num', this.value)" class="w-12 rounded px-1 py-0.5 text-center font-bold"></td>
+          <td class="py-1.5 px-2"><input type="text" value="${h.name}" onchange="updateHorse(${i}, 'name', this.value)" class="w-full rounded px-2 py-0.5 font-bold"></td>
+          <td class="py-1.5 px-2">
+            <select onchange="updateHorse(${i}, 'style', this.value)" class="w-full rounded px-1 py-0.5">
+              <option value="逃げ" ${h.style==='逃げ'?'selected':''}>逃げ</option>
+              <option value="先行" ${h.style==='先行'?'selected':''}>先行</option>
+              <option value="差し" ${h.style==='差し'?'selected':''}>差し</option>
+              <option value="追込" ${h.style==='追込'?'selected':''}>追込</option>
+            </select>
+          </td>
+          <td class="py-1.5 px-2"><select onchange="updateHorse(${i}, 'fit', this.value)" class="w-full rounded px-1.5 py-0.5"><option value="S" ${h.fit==='S'?'selected':''}>S</option><option value="A" ${h.fit==='A'?'selected':''}>A</option><option value="B" ${h.fit==='B'?'selected':''}>B</option><option value="C" ${h.fit==='C'?'selected':''}>C</option></select></td>
+          <td class="py-1.5 px-2"><input type="text" value="${h.jockey}" onchange="updateHorse(${i}, 'jockey', this.value)" class="w-full rounded px-2 py-0.5 text-xs"></td>
+          <td class="py-1.5 px-2"><input type="number" step="0.1" value="${h.odds}" onchange="updateHorse(${i}, 'odds', this.value)" class="w-20 rounded px-1.5 py-0.5 text-right font-bold" style="color: #b45309 !important;"></td>
+          <td class="py-1.5 px-2"><input type="text" value="${h.memo}" onchange="updateHorse(${i}, 'memo', this.value)" class="w-full rounded px-2 py-0.5 text-xs"></td>
+          <td class="py-1.5 px-2 text-center font-bold" id="mark-${i}" style="color: #ffffff;">-</td>
+          <td class="py-1.5 px-2 text-right font-mono" id="score-${i}" style="color: #ffffff;">0</td>
+          <td class="py-1.5 px-2 text-right font-mono font-bold" id="ev-${i}">0%</td>
+          <td class="py-1.5 px-2 text-center"><button type="button" onclick="removeHorse(${i})" class="text-slate-500 hover:text-rose-400 cursor-pointer">×</button></td>
+        </tr>`).join('');
+    }
+
+    function calculateAll() {
+      saveStorage();
+      const rankingEl = document.getElementById('rankingList');
+      if (!horses || horses.length === 0) {
+        if (rankingEl) rankingEl.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">出走馬が入力されるとランキングが表示されます</p>`;
+        return;
+      }
+      const place = document.getElementById('racePlace').value;
+      const distance = document.getElementById('raceDistance').value;
+      const condition = document.getElementById('trackCondition').value;
+      const stance = document.getElementById('stanceMode').value;
+      const paceText = document.getElementById('paceSelect').value;
+
+      const fitMap = { S: 15, A: 8, B: 0, C: -10 };
+      const scored = horses.map((h, i) => {
+        const cfg = (typeof MASTER_AI_CONFIG !== 'undefined') ? MASTER_AI_CONFIG : null;
+        let paceBonus = 0;
+        if (cfg && cfg.styleScores && cfg.styleScores[h.style]) {
+          if (paceText.includes(cfg.styleScores[h.style].paceMatch)) {
+            paceBonus = cfg.styleScores[h.style].bonus || 20;
+          }
+        }
+
+        const cross = (typeof calculateMultipliedBonus === 'function')
+          ? calculateMultipliedBonus(h.name, h.jockey, place, distance, condition)
+          : { bonus: 0, memo: '' };
+        const score = Math.max(10, Math.min(100, 50 + paceBonus + (fitMap[h.fit] || 0) + (cross.bonus || 0)));
+        const ev = Math.round(((score / 340) / (1 / Math.max(1.1, h.odds || 10))) * 100);
+        const weight = stance === 'solid' ? 0.1 : stance === 'value' ? 0.75 : 0.4;
+        return { ...h, originalIndex: i, score, ev, finalIndex: score * (1 - weight) + Math.min(130, ev) * weight, crossMemo: cross.memo || '' };
+      });
+
+      scored.sort((a, b) => b.finalIndex - a.finalIndex);
+      scored.forEach((h, r) => {
+        h.mark = r === 0 ? '◎' : r === 1 ? '○' : r === 2 ? '▲' : r === 3 ? '△' : r === 4 ? '☆' : '-';
+        const markEl = document.getElementById(`mark-${h.originalIndex}`);
+        const scoreEl = document.getElementById(`score-${h.originalIndex}`);
+        const evEl = document.getElementById(`ev-${h.originalIndex}`);
+        if (markEl) markEl.textContent = h.mark;
+        if (scoreEl) scoreEl.textContent = h.score;
+        if (evEl) {
+          evEl.textContent = `${h.ev}%`;
+          evEl.className = `py-1.5 px-2 text-right font-mono font-bold ${h.ev >= 110 ? 'text-amber-600' : 'text-emerald-700'}`;
+        }
+      });
+
+      lastSortedResult = scored;
+      if (rankingEl) {
+        rankingEl.innerHTML = scored.slice(0, 5).map(h => `
+          <div class="flex justify-between items-center p-2.5 rounded bg-[#f8fafc] border border-[#264237] text-xs">
+            <div>
+              <strong class="text-slate-900 font-bold">${h.mark} ${h.num}番 ${h.name || '未入力'}</strong> <span class="text-slate-600">(鞍上:${h.jockey} / 脚質:${h.style} / ${h.odds}倍)</span>
+              ${h.crossMemo ? `<div class="text-[10px] text-amber-700 font-bold mt-0.5">[${h.crossMemo}]</div>` : ''}
+            </div>
+            <div class="font-mono text-slate-900">スコア:<strong>${h.score}</strong> EV:<strong class="text-amber-700">${h.ev}%</strong></div>
+          </div>`).join('');
+      }
+    }
+
+    function saveCurrentPrediction() {
+      const top = lastSortedResult[0];
+      if (!top) { alert('保存する予想データがありません。'); return; }
+      const raceName = document.getElementById('raceName').value || 'クロス分析レース';
+      const place = document.getElementById('racePlace').value;
+      const distance = document.getElementById('raceDistance').value;
+      const condition = document.getElementById('trackCondition').value;
+      const stance = document.getElementById('stanceMode').value;
+
+      predictionHistory.unshift({
+        date: new Date().toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        raceName, place, distance, condition, stance,
+        horses: JSON.parse(JSON.stringify(horses)),
+        title: `${place}・${distance}（${condition}） ${raceName}`,
+        honmei: `◎ ${top.num}番 ${top.name || '未入力'} (EV:${top.ev}%)`,
+        result: '未確定'
+      });
+      saveStorage(); renderHistory();
+      alert('予想を保存しました！');
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('historyListContainer');
+      if (!container) return;
+      if (predictionHistory.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-3">保存された予想履歴はありません。</p>`;
+        return;
+      }
+      container.innerHTML = predictionHistory.map((h, idx) => `
+        <div class="flex flex-wrap justify-between items-center p-3 rounded bg-[#f8fafc] border border-[#264237] text-xs gap-2">
+          <div>
+            <div class="text-[10px] text-slate-500">${h.date}</div>
+            <div class="font-bold text-slate-900">${h.title}</div>
+            <div class="text-amber-700 font-bold">${h.honmei}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="loadHistory(${idx})" class="bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded cursor-pointer">📂 読込</button>
+            <select onchange="predictionHistory[${idx}].result=this.value;saveStorage()" class="rounded px-2 py-1 text-xs font-bold bg-white text-slate-900">
+              <option value="未確定" ${h.result==='未確定'?'selected':''}>未確定</option>
+              <option value="的中" ${h.result==='的中'?'selected':''}>的中🎯</option>
+              <option value="外れ" ${h.result==='外れ'?'selected':''}>外れ❌</option>
+            </select>
+            <button type="button" onclick="predictionHistory.splice(${idx},1);saveStorage();renderHistory()" class="text-slate-500 hover:text-rose-600 px-1 cursor-pointer">×</button>
+          </div>
+        </div>`).join('');
+    }
+
+    function loadHistory(idx) {
+      const h = predictionHistory[idx];
+      if (!h) return;
+      isCustomSession = true;
+      document.getElementById('raceName').value = h.raceName || '';
+      document.getElementById('racePlace').value = h.place || '京都';
+      document.getElementById('raceDistance').value = h.distance || '芝1600m';
+      document.getElementById('trackCondition').value = h.condition || '良';
+      document.getElementById('stanceMode').value = h.stance || 'balance';
+      horses = JSON.parse(JSON.stringify(h.horses)).map(repairHorseObj);
+      autoDetectPace(false);
+      renderTable(); calculateAll();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function clearHistory() {
+      if (confirm('保存済みの履歴をすべて削除しますか？')) { predictionHistory = []; saveStorage(); renderHistory(); }
+    }
+
+    function generateShareImage() {
+      if (lastSortedResult.length === 0) { alert('出走馬を入力してください。'); return; }
+      document.getElementById('shareModal').classList.remove('hidden');
+      const canvas = document.getElementById('shareCanvas');
+      const ctx = canvas.getContext('2d');
+      const raceTitle = document.getElementById('raceName').value || 'クロス分析予想';
+      const place = document.getElementById('racePlace').value;
+      const distance = document.getElementById('raceDistance').value;
+      const condition = document.getElementById('trackCondition').value;
+
+      ctx.fillStyle = '#0b1310';
+      ctx.fillRect(0, 0, 600, 600);
+
+      ctx.fillStyle = '#121f1a';
+      ctx.fillRect(20, 20, 560, 65);
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(20, 20, 560, 65);
+
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('✏️ AI競馬予想 えんぴつ先生｜クロス分析カード', 35, 44);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 17px sans-serif';
+      ctx.fillText(`${place}・${distance}（${condition}） ${raceTitle}`, 35, 70);
+
+      lastSortedResult.slice(0, 5).forEach((h, i) => {
+        const y = 100 + i * 92;
+        ctx.fillStyle = i === 0 ? '#182b23' : '#121f1a';
+        ctx.fillRect(20, y, 560, 82);
+        ctx.strokeStyle = i === 0 ? '#d4af37' : '#264237';
+        ctx.lineWidth = i === 0 ? 2 : 1;
+        ctx.strokeRect(20, y, 560, 82);
+
+        ctx.fillStyle = i === 0 ? '#fbbf24' : '#ffffff';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(`${h.mark} ${h.num}番 ${h.name || '未入力'}`, 35, y + 27);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(`鞍上: ${h.jockey}  |  単勝: ${h.odds}倍`, 35, y + 48);
+
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(`AIスコア: ${h.score}   期待値(EV): ${h.ev}%`, 35, y + 69);
+      });
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px sans-serif';
+      ctx.fillText('© 2026 AI競馬予想 えんぴつ先生', 20, 582);
+
+      document.getElementById('downloadLink').href = canvas.toDataURL('image/png');
+    }
+  </script>
+</body>
+</html>
