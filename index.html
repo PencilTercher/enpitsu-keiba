@@ -98,10 +98,13 @@
       box-sizing: border-box;
     }
     input[type="date"] {
-      width: 100% !important;
-      min-width: 0 !important;
-      max-width: 100% !important;
-      display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  display: block;
+  font-size: 13px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
     }
     input:focus, select:focus, textarea:focus {
       outline: none;
@@ -178,10 +181,10 @@
           <span id="masterQuoteStatus" class="text-[11px] text-slate-400">カレンダーで日付を選ぶと対象レースが表示されます</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0">
-          <div class="min-w-0">
-            <label class="block text-[11px] text-slate-400 mb-1">開催日（カレンダー選択）</label>
-            <input type="date" id="masterDateInput" onchange="onMasterDateChange()" class="w-full min-w-0 max-w-full rounded px-2.5 py-1.5 text-sm font-mono">
-          </div>
+         <div class="min-w-0 overflow-hidden">
+  <label class="block text-[11px] text-slate-400 mb-1">開催日（カレンダー選択）</label>
+  <input type="date" id="masterDateInput" onchange="onMasterDateChange()" class="w-full min-w-0 max-w-full rounded px-2 py-1.5 font-mono">
+</div>
           <div class="sm:col-span-2 min-w-0">
             <label class="block text-[11px] text-slate-400 mb-1">対象レース（選ぶと出走表・条件・コラムを反映）</label>
             <select id="masterRaceSelect" onchange="applySelectedMasterRace()" class="w-full min-w-0 max-w-full rounded px-2.5 py-1.5 text-sm font-bold">
