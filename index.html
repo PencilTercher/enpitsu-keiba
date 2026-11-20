@@ -7,6 +7,86 @@
   <meta name="description" content="AI競馬予想 えんぴつ先生は、脚質バランス・適性評価・オッズから期待値（妙味）を自動算出する無料競馬予想＆分析シミュレーターです。">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="ai-master.js"></script>
+  <script src="ai-update.js" onerror="window.__NO_AI_UPDATE__=true"></script>
+  <script>
+    (function mergeMasterAndUpdate() {
+      const base = (typeof MASTER_AI_CONFIG !== 'undefined' && MASTER_AI_CONFIG)
+        ? JSON.parse(JSON.stringify(MASTER_AI_CONFIG))
+        : { races: [], horsesDb: [], jockeysDb: [], defaultColumn: '' };
+
+      const upd = (typeof window.AI_UPDATE_DATA !== 'undefined' && window.AI_UPDATE_DATA)
+        ? window.AI_UPDATE_DATA
+        : {};
+
+      const normDate = (d) => {
+        if (!d) return '';
+        const s = String(d).trim().replace(/[-.]/g, '/');
+        const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+        return m ? `${m[1]}/${String(m[2]).padStart(2, '0')}/${String(m[3]).padStart(2, '0')}` : s;
+      };
+
+      // 1. レース合体（日付＋レース名が一致すれば上書き、なければ追加）
+      const mergedRaces = Array.isArray(base.races) ? [...base.races] : [];
+      if (Array.isArray(upd.races)) {
+        upd.races.forEach(uRace => {
+          if (!uRace) return;
+          const uDate = normDate(uRace.date);
+          const uName = (uRace.raceName || '').trim();
+          const idx = mergedRaces.findIndex(
+            bRace => normDate(bRace.date) === uDate && (bRace.raceName || '').trim() === uName
+          );
+          if (idx >= 0) {
+            mergedRaces[idx] = { ...mergedRaces[idx], ...uRace, date: uDate };
+          } else {
+            mergedRaces.push({ ...uRace, date: uDate });
+          }
+        });
+      }
+
+      // 2. 競走馬マスター合体（馬名一致で上書き、未登録なら追加）
+      const mergedHorses = Array.isArray(base.horsesDb) ? [...base.horsesDb] : [];
+      if (Array.isArray(upd.horsesDb)) {
+        upd.horsesDb.forEach(uHorse => {
+          const name = (uHorse?.name || '').trim();
+          if (!name) return;
+          const idx = mergedHorses.findIndex(bHorse => (bHorse.name || '').trim() === name);
+          if (idx >= 0) {
+            mergedHorses[idx] = { ...mergedHorses[idx], ...uHorse, name };
+          } else {
+            mergedHorses.push({ ...uHorse, name });
+          }
+        });
+      }
+
+      // 3. 鞍上マスター合体（騎手名一致で上書き、未登録なら追加）
+      const mergedJockeys = Array.isArray(base.jockeysDb) ? [...base.jockeysDb] : [];
+      if (Array.isArray(upd.jockeysDb)) {
+        upd.jockeysDb.forEach(uJockey => {
+          const name = (uJockey?.name || '').trim();
+          if (!name) return;
+          const idx = mergedJockeys.findIndex(bJockey => (bJockey.name || '').trim() === name);
+          if (idx >= 0) {
+            mergedJockeys[idx] = { ...mergedJockeys[idx], ...uJockey, name };
+          } else {
+            mergedJockeys.push({ ...uJockey, name });
+          }
+        });
+      }
+
+      // 4. デフォルトコラム（空でなければ上書き）
+      const mergedColumn = (typeof upd.defaultColumn === 'string' && upd.defaultColumn.trim() !== '')
+        ? upd.defaultColumn
+        : (base.defaultColumn || '');
+
+      window.MERGED_AI_CONFIG = {
+        ...base,
+        races: mergedRaces,
+        horsesDb: mergedHorses,
+        jockeysDb: mergedJockeys,
+        defaultColumn: mergedColumn
+      };
+    })();
+  </script>
   <style>
     body { background-color: #0b1310; color: #e2e8f0; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; }
     .turf-card { background: linear-gradient(145deg, #121f1a 0%, #0d1713 100%); border: 1px solid #1f362d; }
@@ -273,6 +353,16 @@
       }
     ];
 
+    function getActiveConfig() {
+      if (typeof window.MERGED_AI_CONFIG !== 'undefined' && window.MERGED_AI_CONFIG) {
+        return window.MERGED_AI_CONFIG;
+      }
+      if (typeof MASTER_AI_CONFIG !== 'undefined' && MASTER_AI_CONFIG) {
+        return MASTER_AI_CONFIG;
+      }
+      return null;
+    }
+
     // 列ズレ修復ヘルパー
     function repairHorseObj(h, idx) {
       let num = parseInt(h?.num, 10) || (idx + 1);
@@ -391,18 +481,19 @@
 
     function getAllMasterRaces() {
       const list = [];
+      const cfg = getActiveConfig();
 
-      if (typeof MASTER_AI_CONFIG !== 'undefined' && MASTER_AI_CONFIG) {
-        if (Array.isArray(MASTER_AI_CONFIG.races)) {
-          MASTER_AI_CONFIG.races.forEach(r => list.push({
+      if (cfg) {
+        if (Array.isArray(cfg.races)) {
+          cfg.races.forEach(r => list.push({
             ...r,
             date: normalizeDateStr(r.date),
             horses: (r.horses || []).map(repairHorseObj)
           }));
         }
-        if (MASTER_AI_CONFIG.racesByDate && typeof MASTER_AI_CONFIG.racesByDate === 'object') {
-          Object.keys(MASTER_AI_CONFIG.racesByDate).forEach(d => {
-            const arr = MASTER_AI_CONFIG.racesByDate[d];
+        if (cfg.racesByDate && typeof cfg.racesByDate === 'object') {
+          Object.keys(cfg.racesByDate).forEach(d => {
+            const arr = cfg.racesByDate[d];
             if (Array.isArray(arr)) {
               arr.forEach(r => list.push({
                 ...r,
@@ -438,7 +529,7 @@
       const dates = Array.from(new Set(allRaces.map(r => r.date).filter(Boolean))).sort();
       const dateInput = document.getElementById('masterDateInput');
       if (dateInput && !dateInput.value && dates.length > 0) {
-        const defaultSlash = dates.includes('2026/11/15') ? '2026/11/15' : dates[0];
+        const defaultSlash = dates.includes('2026/11/15') ? '2026/11/15' : dates[dates.length - 1];
         dateInput.value = toDateInputValue(defaultSlash);
       }
       onMasterDateChange(!isCustomSession && horses.length === 0);
@@ -606,9 +697,13 @@
           horses = (parsed.horses || []).map(repairHorseObj);
           predictionHistory = parsed.history || [];
           const colBox = document.getElementById('displayColumnBox');
+          const cfg = getActiveConfig();
+          const defaultCol = (parsed.columnText && parsed.columnText.trim())
+            ? parsed.columnText.trim()
+            : ((cfg && cfg.defaultColumn && cfg.defaultColumn.trim()) ? cfg.defaultColumn.trim() : '');
           if (colBox) {
-            if (parsed.columnText && parsed.columnText.trim()) {
-              colBox.textContent = parsed.columnText;
+            if (defaultCol) {
+              colBox.textContent = defaultCol;
               colBox.style.color = "#0f172a";
             } else {
               colBox.textContent = 'コラム未登録';
@@ -719,6 +814,63 @@
         </tr>`).join('');
     }
 
+    // 合体済みマスター（MERGED_AI_CONFIG）から馬補正・鞍上＋値を算出する補助関数
+    function calcMasterBonus(horseName, jockeyName, place, distance, condition) {
+      const cfg = getActiveConfig();
+      let bonus = 0;
+      const memos = [];
+
+      if (cfg && Array.isArray(cfg.horsesDb) && horseName) {
+        const hName = String(horseName).trim();
+        const hRow = cfg.horsesDb.find(d => String(d?.name || '').trim() === hName);
+        if (hRow) {
+          const baseB = Number(hRow.bonus) || 0;
+          if (baseB !== 0) {
+            bonus += baseB;
+            memos.push(`馬:${baseB > 0 ? '+' : ''}${baseB}`);
+          }
+          if (hRow.placeMod && place) {
+            const mPlace = String(hRow.placeMod).match(new RegExp(`${place}\\s*[:：]?\\s*([+-]?\\d+(?:\\.\\d+)?)`));
+            if (mPlace) {
+              const pVal = parseFloat(mPlace[1]) || 0;
+              bonus += pVal;
+              memos.push(`${place}:${pVal > 0 ? '+' : ''}${pVal}`);
+            }
+          }
+          if (hRow.condMod && condition) {
+            const mCond = String(hRow.condMod).match(new RegExp(`${condition}\\s*[:：]?\\s*([+-]?\\d+(?:\\.\\d+)?)`));
+            if (mCond) {
+              const cVal = parseFloat(mCond[1]) || 0;
+              bonus += cVal;
+              memos.push(`${condition}:${cVal > 0 ? '+' : ''}${cVal}`);
+            }
+          }
+        }
+      }
+
+      if (cfg && Array.isArray(cfg.jockeysDb) && jockeyName) {
+        const jRaw = String(jockeyName).trim().replace(/[．.・\s]/g, '');
+        const jRow = cfg.jockeysDb.find(d => {
+          const dName = String(d?.name || '').trim();
+          if (!dName) return false;
+          const dCompact = dName.replace(/[．.・\s]/g, '');
+          return dName === jockeyName.trim() || dCompact === jRaw || dCompact.includes(jRaw) || jRaw.includes(dCompact);
+        });
+        if (jRow) {
+          const jBonus = Number(jRow.bonus) || 0;
+          const jPlace = (jRow.place && place && String(jRow.place).includes(place)) ? (Number(jRow.placeMod) || 0) : 0;
+          const jCond = Number(jRow.condMod) || 0;
+          const jTotal = jBonus + jPlace + jCond;
+          if (jTotal !== 0) {
+            bonus += jTotal;
+            memos.push(`騎手(${jRow.name}):${jTotal > 0 ? '+' : ''}${jTotal}`);
+          }
+        }
+      }
+
+      return { bonus, memo: memos.join(' / ') };
+    }
+
     function calculateAll() {
       saveStorage();
       const rankingEl = document.getElementById('rankingList');
@@ -732,9 +884,9 @@
       const stance = document.getElementById('stanceMode').value;
       const paceText = document.getElementById('paceSelect').value;
 
+      const cfg = getActiveConfig();
       const fitMap = { S: 15, A: 8, B: 0, C: -10 };
       const scored = horses.map((h, i) => {
-        const cfg = (typeof MASTER_AI_CONFIG !== 'undefined') ? MASTER_AI_CONFIG : null;
         let paceBonus = 0;
         if (cfg && cfg.styleScores && cfg.styleScores[h.style]) {
           if (paceText.includes(cfg.styleScores[h.style].paceMatch)) {
@@ -742,13 +894,18 @@
           }
         }
 
-        const cross = (typeof calculateMultipliedBonus === 'function')
+        const masterBonus = calcMasterBonus(h.name, h.jockey, place, distance, condition);
+        const extCross = (typeof calculateMultipliedBonus === 'function')
           ? calculateMultipliedBonus(h.name, h.jockey, place, distance, condition)
           : { bonus: 0, memo: '' };
-        const score = Math.max(10, Math.min(100, 50 + paceBonus + (fitMap[h.fit] || 0) + (cross.bonus || 0)));
+
+        const totalExtraBonus = masterBonus.bonus + (extCross.bonus || 0);
+        const combinedMemo = [masterBonus.memo, extCross.memo].filter(Boolean).join(' / ');
+
+        const score = Math.max(10, Math.min(100, 50 + paceBonus + (fitMap[h.fit] || 0) + totalExtraBonus));
         const ev = Math.round(((score / 340) / (1 / Math.max(1.1, h.odds || 10))) * 100);
         const weight = stance === 'solid' ? 0.1 : stance === 'value' ? 0.75 : 0.4;
-        return { ...h, originalIndex: i, score, ev, finalIndex: score * (1 - weight) + Math.min(130, ev) * weight, crossMemo: cross.memo || '' };
+        return { ...h, originalIndex: i, score, ev, finalIndex: score * (1 - weight) + Math.min(130, ev) * weight, crossMemo: combinedMemo };
       });
 
       scored.sort((a, b) => b.finalIndex - a.finalIndex);
