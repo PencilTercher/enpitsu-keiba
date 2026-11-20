@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>お問い合わせ｜えんぴつ先生の競馬予想</title>
-  <meta name="description" content="えんぴつ先生の競馬予想ツールに関するご意見、ご感想、不具合報告、機能リクエストはこちらからお問い合わせください。">
+  <title>お問い合わせ｜AI競馬予想 えんぴつ先生</title>
+  <meta name="description" content="AI競馬予想 えんぴつ先生に関するご意見、ご感想、不具合報告、機能リクエストはこちらからお問い合わせください。">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -21,17 +21,18 @@
 <body class="min-h-screen flex flex-col">
 
   <!-- ヘッダー -->
-  <header class="bg-[#080e0c] border-b border-[#1f362d] sticky top-0 z-50">
+  <header class="bg-[#080e0c] border-b border-[#1f362d] sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
       <a href="index.html" class="flex items-center gap-2">
-        <span class="text-2xl">✏️</span>
+        <span class="text-xl">✏️</span>
         <div>
-          <h1 class="text-lg md:text-xl font-bold tracking-wider text-white">えんぴつ先生の競馬予想</h1>
-          <p class="text-[11px] text-emerald-400">展開予測 × 期待値（EV）スコアリング</p>
+          <h1 class="text-base font-bold text-white">AI競馬予想 えんぴつ先生</h1>
+          <p class="text-[10px] text-emerald-400">「馬」×「鞍上」×「馬場状態」クロス分析</p>
         </div>
       </a>
-      <nav class="flex items-center gap-4 text-xs md:text-sm text-slate-300">
+      <nav class="flex flex-wrap items-center gap-4 text-xs text-slate-300">
         <a href="index.html" class="hover:text-emerald-400 transition">予想ツール</a>
+        <a href="index.html#historySection" class="hover:text-emerald-400 transition">予想履歴</a>
         <a href="about.html" class="hover:text-emerald-400 transition">運営者・ロジック</a>
         <a href="contact.html" class="text-emerald-400 font-bold">お問い合わせ</a>
         <a href="privacy.html" class="hover:text-emerald-400 transition">プライバシーポリシー</a>
@@ -46,7 +47,7 @@
         <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
           <span class="text-emerald-400">✉️</span> お問い合わせ・機能リクエスト
         </h2>
-        <p class="text-xs text-slate-400 mt-1">期待値分析ツールのご感想や「こんな機能が欲しい」といったご要望をお気軽にお寄せください。</p>
+        <p class="text-xs text-slate-400 mt-1">期待値（EV）分析ツールのご感想や「こんな機能が欲しい」といったご要望をお気軽にお寄せください。</p>
       </div>
 
       <div class="space-y-4 text-xs md:text-sm">
@@ -79,13 +80,14 @@
   </main>
 
   <footer class="bg-[#080e0c] border-t border-[#1f362d] mt-10 py-8 text-xs text-slate-400 text-center space-y-2">
-    <div class="flex justify-center gap-4 text-slate-400">
+    <div class="flex flex-wrap justify-center gap-4 text-slate-400">
       <a href="index.html" class="hover:text-emerald-400 transition">予想ツール</a>
       <a href="about.html" class="hover:text-emerald-400 transition">運営者・ロジック</a>
-      <a href="contact.html" class="hover:text-emerald-400 transition font-bold text-emerald-400">お問い合わせ</a>
+      <a href="contact.html" class="text-emerald-400 font-bold">お問い合わせ</a>
       <a href="privacy.html" class="hover:text-emerald-400 transition">プライバシーポリシー</a>
     </div>
-    <p>&copy; 2026 えんぴつ先生の競馬予想 All Rights Reserved.</p>
+    <p class="text-[11px] text-slate-500">※当ツールはデータ分析による期待値シミュレーションを提供するものであり、的中を保証するものではありません。</p>
+    <p>&copy; 2026 AI競馬予想 えんぴつ先生 All Rights Reserved.</p>
   </footer>
 
 </body>
