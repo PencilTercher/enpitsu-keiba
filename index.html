@@ -25,19 +25,21 @@
         return m ? `${m[1]}/${String(m[2]).padStart(2, '0')}/${String(m[3]).padStart(2, '0')}` : s;
       };
 
+      const normName = (n) => String(n || '').trim().replace(/\s+/g, ' ');
+
       const mergedRaces = Array.isArray(base.races) ? [...base.races] : [];
       if (Array.isArray(upd.races)) {
         upd.races.forEach(uRace => {
           if (!uRace) return;
           const uDate = normDate(uRace.date);
-          const uName = (uRace.raceName || '').trim();
+          const uName = normName(uRace.raceName);
           const idx = mergedRaces.findIndex(
-            bRace => normDate(bRace.date) === uDate && (bRace.raceName || '').trim() === uName
+            bRace => normDate(bRace.date) === uDate && normName(bRace.raceName) === uName
           );
           if (idx >= 0) {
-            mergedRaces[idx] = { ...mergedRaces[idx], ...uRace, date: uDate };
+            mergedRaces[idx] = { ...mergedRaces[idx], ...uRace, date: uDate, raceName: uName };
           } else {
-            mergedRaces.push({ ...uRace, date: uDate });
+            mergedRaces.push({ ...uRace, date: uDate, raceName: uName });
           }
         });
       }
@@ -45,9 +47,9 @@
       const mergedHorses = Array.isArray(base.horsesDb) ? [...base.horsesDb] : [];
       if (Array.isArray(upd.horsesDb)) {
         upd.horsesDb.forEach(uHorse => {
-          const name = (uHorse?.name || '').trim();
+          const name = normName(uHorse?.name);
           if (!name) return;
-          const idx = mergedHorses.findIndex(bHorse => (bHorse.name || '').trim() === name);
+          const idx = mergedHorses.findIndex(bHorse => normName(bHorse.name) === name);
           if (idx >= 0) {
             mergedHorses[idx] = { ...mergedHorses[idx], ...uHorse, name };
           } else {
@@ -59,9 +61,9 @@
       const mergedJockeys = Array.isArray(base.jockeysDb) ? [...base.jockeysDb] : [];
       if (Array.isArray(upd.jockeysDb)) {
         upd.jockeysDb.forEach(uJockey => {
-          const name = (uJockey?.name || '').trim();
+          const name = normName(uJockey?.name);
           if (!name) return;
-          const idx = mergedJockeys.findIndex(bJockey => (bJockey.name || '').trim() === name);
+          const idx = mergedJockeys.findIndex(bJockey => normName(bJockey.name) === name);
           if (idx >= 0) {
             mergedJockeys[idx] = { ...mergedJockeys[idx], ...uJockey, name };
           } else {
@@ -84,6 +86,7 @@
     })();
   </script>
   <style>
+    html, body { max-width: 100%; overflow-x: hidden; }
     body { background-color: #0b1310; color: #e2e8f0; font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; }
     .turf-card { background: linear-gradient(145deg, #121f1a 0%, #0d1713 100%); border: 1px solid #1f362d; }
     .gold-text { color: #d4af37; }
@@ -92,6 +95,13 @@
       background-color: #f8fafc !important;
       border: 1px solid #264237;
       color: #0f172a !important;
+      box-sizing: border-box;
+    }
+    input[type="date"] {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      display: block;
     }
     input:focus, select:focus, textarea:focus {
       outline: none;
@@ -122,11 +132,11 @@
   <!-- ヘッダー -->
   <header class="bg-[#080e0c] border-b border-[#1f362d] sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-      <a href="index.html" class="flex items-center gap-2">
-        <span class="text-xl">✏️</span>
-        <div>
-          <h1 class="text-base font-bold text-white">AI競馬予想 えんぴつ先生</h1>
-          <p class="text-[10px] text-emerald-400">「馬」×「鞍上」×「馬場状態」クロス分析</p>
+      <a href="index.html" class="flex items-center gap-2 min-w-0">
+        <span class="text-xl shrink-0">✏️</span>
+        <div class="min-w-0">
+          <h1 class="text-base font-bold text-white truncate">AI競馬予想 えんぴつ先生</h1>
+          <p class="text-[10px] text-emerald-400 truncate">「馬」×「鞍上」×「馬場状態」クロス分析</p>
         </div>
       </a>
       <nav class="flex flex-wrap gap-3 sm:gap-4 text-xs text-slate-300">
@@ -140,7 +150,7 @@
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-3 sm:px-4 py-5 sm:py-6 flex-grow w-full space-y-6">
+  <main class="max-w-6xl mx-auto px-3 sm:px-4 py-5 sm:py-6 flex-grow w-full min-w-0 space-y-6">
 
     <!-- 広告枠① -->
     <div class="ad-box h-20 rounded-lg">
@@ -148,11 +158,11 @@
     </div>
 
     <!-- 操作バー＆出走馬テーブル -->
-    <section class="turf-card rounded-xl p-3.5 sm:p-6 shadow-lg">
+    <section class="turf-card rounded-xl p-3.5 sm:p-6 shadow-lg min-w-0">
       <div class="flex flex-wrap justify-between items-center gap-3 border-b border-[#1f362d] pb-4 mb-4">
-        <div>
+        <div class="min-w-0">
           <h2 class="text-base font-bold text-white">クロス掛け合わせ期待値（EV）分析</h2>
-          <p class="text-xs text-slate-400">カレンダーから日付とレースを選ぶだけでMasterデータを引用できます（スマホは表を横にスライドして閲覧できます）</p>
+          <p class="text-xs text-slate-400">カレンダーから日付とレースを選ぶだけでMasterデータを引用できます</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button type="button" onclick="openBulkPasteModal()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-2 rounded cursor-pointer">📋 出馬表一括取込</button>
@@ -162,19 +172,19 @@
       </div>
 
       <!-- Master引用バー（カレンダー選択 → レース名プルダウン） -->
-      <div class="mb-4 p-3.5 rounded-lg bg-[#080e0c] border border-emerald-900/60 space-y-2.5">
+      <div class="mb-4 p-3 sm:p-3.5 rounded-lg bg-[#080e0c] border border-emerald-900/60 space-y-2.5 min-w-0">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="text-xs font-bold text-emerald-400">⚡ Masterデータから引用（カレンダー → レース選択）</span>
           <span id="masterQuoteStatus" class="text-[11px] text-slate-400">カレンダーで日付を選ぶと対象レースが表示されます</span>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0">
+          <div class="min-w-0">
             <label class="block text-[11px] text-slate-400 mb-1">開催日（カレンダー選択）</label>
-            <input type="date" id="masterDateInput" onchange="onMasterDateChange()" class="w-full rounded px-2.5 py-1.5 text-sm font-mono">
+            <input type="date" id="masterDateInput" onchange="onMasterDateChange()" class="w-full min-w-0 max-w-full rounded px-2.5 py-1.5 text-sm font-mono">
           </div>
-          <div class="sm:col-span-2">
+          <div class="sm:col-span-2 min-w-0">
             <label class="block text-[11px] text-slate-400 mb-1">対象レース（選ぶと出走表・条件・コラムを反映）</label>
-            <select id="masterRaceSelect" onchange="applySelectedMasterRace()" class="w-full rounded px-2.5 py-1.5 text-sm font-bold">
+            <select id="masterRaceSelect" onchange="applySelectedMasterRace()" class="w-full min-w-0 max-w-full rounded px-2.5 py-1.5 text-sm font-bold">
               <option value="">-- 日付を選択してください --</option>
             </select>
           </div>
@@ -183,12 +193,12 @@
       </div>
 
       <!-- レース条件 -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-        <div class="col-span-2"><label class="block text-[11px] text-slate-400 mb-1">レース名</label><input type="text" id="raceName" placeholder="例：マイルCS" oninput="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"></div>
-        <div><label class="block text-[11px] text-slate-400 mb-1">開催場所</label><select id="racePlace" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="京都">京都</option><option value="東京">東京</option><option value="中山">中山</option><option value="阪神">阪神</option><option value="中京">中京</option><option value="新潟">新潟</option><option value="札幌">札幌</option><option value="函館">函館</option><option value="小倉">小倉</option><option value="福島">福島</option></select></div>
-        <div><label class="block text-[11px] text-slate-400 mb-1">距離</label><select id="raceDistance" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="芝1200m">芝1200m</option><option value="芝1600m" selected>芝1600m</option><option value="芝1800m">芝1800m</option><option value="芝2000m">芝2000m</option><option value="芝2200m">芝2200m</option><option value="芝2400m">芝2400m</option><option value="芝2500m">芝2500m</option><option value="ダ1200m">ダ1200m</option><option value="ダ1400m">ダ1400m</option><option value="ダ1800m">ダ1800m</option></select></div>
-        <div><label class="block text-[11px] text-slate-400 mb-1">馬場</label><select id="trackCondition" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option></select></div>
-        <div><label class="block text-[11px] text-slate-400 mb-1">スタンス</label><select id="stanceMode" onchange="calculateAll()" class="w-full rounded px-2.5 py-1.5 text-sm"><option value="balance">バランス</option><option value="solid">堅実</option><option value="value">穴狙い</option></select></div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4 min-w-0">
+        <div class="col-span-2 min-w-0"><label class="block text-[11px] text-slate-400 mb-1">レース名</label><input type="text" id="raceName" placeholder="例：マイルCS" oninput="calculateAll()" class="w-full min-w-0 rounded px-2.5 py-1.5 text-sm"></div>
+        <div class="min-w-0"><label class="block text-[11px] text-slate-400 mb-1">開催場所</label><select id="racePlace" onchange="calculateAll()" class="w-full min-w-0 rounded px-2.5 py-1.5 text-sm"><option value="京都">京都</option><option value="東京">東京</option><option value="中山">中山</option><option value="阪神">阪神</option><option value="中京">中京</option><option value="新潟">新潟</option><option value="札幌">札幌</option><option value="函館">函館</option><option value="小倉">小倉</option><option value="福島">福島</option></select></div>
+        <div class="min-w-0"><label class="block text-[11px] text-slate-400 mb-1">距離</label><select id="raceDistance" onchange="calculateAll()" class="w-full min-w-0 rounded px-2.5 py-1.5 text-sm"><option value="芝1200m">芝1200m</option><option value="芝1600m" selected>芝1600m</option><option value="芝1800m">芝1800m</option><option value="芝2000m">芝2000m</option><option value="芝2200m">芝2200m</option><option value="芝2400m">芝2400m</option><option value="芝2500m">芝2500m</option><option value="ダ1200m">ダ1200m</option><option value="ダ1400m">ダ1400m</option><option value="ダ1800m">ダ1800m</option></select></div>
+        <div class="min-w-0"><label class="block text-[11px] text-slate-400 mb-1">馬場</label><select id="trackCondition" onchange="calculateAll()" class="w-full min-w-0 rounded px-2.5 py-1.5 text-sm"><option value="良">良</option><option value="稍重">稍重</option><option value="重">重</option><option value="不良">不良</option></select></div>
+        <div class="min-w-0"><label class="block text-[11px] text-slate-400 mb-1">スタンス</label><select id="stanceMode" onchange="calculateAll()" class="w-full min-w-0 rounded px-2.5 py-1.5 text-sm"><option value="balance">バランス</option><option value="solid">堅実</option><option value="value">穴狙い</option></select></div>
       </div>
 
       <!-- ペース自動判定バー -->
@@ -207,9 +217,8 @@
       </div>
 
       <!-- スマホ横スクロール案内 -->
-      <div class="sm:hidden flex items-center justify-between text-[11px] text-emerald-300/90 bg-[#0d1915] border border-emerald-900/40 rounded px-3 py-1.5 mb-2">
+      <div class="sm:hidden flex items-center text-[11px] text-emerald-300/90 bg-[#0d1915] border border-emerald-900/40 rounded px-3 py-1.5 mb-2">
         <span>↔ 表は左右にスクロールできます</span>
-        <span class="text-slate-400">馬名・脚質・評価・鞍上は広め表示</span>
       </div>
 
       <!-- テーブル（スマホでも馬名・脚質・評価・鞍上が潰れない幅を確保） -->
@@ -430,6 +439,10 @@
       return `${m[1]}/${String(m[2]).padStart(2, '0')}/${String(m[3]).padStart(2, '0')}`;
     }
 
+    function normalizeRaceNameStr(raw) {
+      return String(raw || '').trim().replace(/\s+/g, ' ');
+    }
+
     function toDateInputValue(slashDate) {
       const norm = normalizeDateStr(slashDate);
       const m = norm.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
@@ -467,6 +480,7 @@
           cfg.races.forEach(r => list.push({
             ...r,
             date: normalizeDateStr(r.date),
+            raceName: normalizeRaceNameStr(r.raceName),
             horses: (r.horses || []).map(repairHorseObj)
           }));
         }
@@ -477,6 +491,7 @@
               arr.forEach(r => list.push({
                 ...r,
                 date: normalizeDateStr(r.date || d),
+                raceName: normalizeRaceNameStr(r.raceName),
                 horses: (r.horses || []).map(repairHorseObj)
               }));
             }
@@ -490,17 +505,29 @@
           saved.masterRaces.forEach(r => list.push({
             ...r,
             date: normalizeDateStr(r.date),
+            raceName: normalizeRaceNameStr(r.raceName),
             horses: (r.horses || []).map(repairHorseObj)
           }));
         }
       } catch (e) {}
 
       FALLBACK_MASTER_RACES.forEach(fb => {
-        const exists = list.some(item => item.date === fb.date && item.raceName === fb.raceName);
-        if (!exists) list.push({ ...fb, horses: (fb.horses || []).map(repairHorseObj) });
+        list.push({
+          ...fb,
+          date: normalizeDateStr(fb.date),
+          raceName: normalizeRaceNameStr(fb.raceName),
+          horses: (fb.horses || []).map(repairHorseObj)
+        });
       });
 
-      return list;
+      const dedupMap = new Map();
+      list.forEach(item => {
+        if (!item || (!item.raceName && (!item.horses || item.horses.length === 0))) return;
+        const key = `${normalizeDateStr(item.date)}__${normalizeRaceNameStr(item.raceName)}`;
+        dedupMap.set(key, item);
+      });
+
+      return Array.from(dedupMap.values());
     }
 
     function initMasterDatePicker() {
